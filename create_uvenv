@@ -16,16 +16,18 @@ VENV=${ENV_DIR}/mewslabs-thermohl-uv
 VLNK=.venv
 ln -sf $VENV $VLNK
 # uv venv $VENV --python-preference=system # --python 3.11
-uv venv $VENV --python 3.10.12
+uv venv $VENV
 source $VENV/bin/activate
-# .venv\Scripts\activate
+
+# -- upgrade uv
+uv self update
 
 # -- upgrade pip
 uv pip install --upgrade pip
 
 # -- install local package
 rm -rf build
-uv pip install .[examples,dev]
+uv sync --group dev
 
 # -- end text
 echo "---"
