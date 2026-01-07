@@ -158,10 +158,6 @@ class Solver3TL(Solver3T):
         if N < 2:
             raise ValueError()
 
-        # get initial temperature
-        Ts0 = Ts0 if Ts0 is not None else self.args.Ta
-        Tc0 = Tc0 if Tc0 is not None else 1.0 + Ts0
-
         # shortcuts for time-loop
         imc = 1.0 / (self.args.m * self.args.c)
 
