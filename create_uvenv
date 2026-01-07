@@ -16,7 +16,7 @@ VENV=${ENV_DIR}/mewslabs-thermohl-uv
 VLNK=.venv
 ln -sf $VENV $VLNK
 # uv venv $VENV --python-preference=system # --python 3.11
-uv venv $VENV
+uv venv --clear $VENV
 source $VENV/bin/activate
 
 # -- upgrade uv
