@@ -15,9 +15,9 @@ import pandas as pd
 
 from thermohl import solver
 from thermohl.power import cigre
-from thermohl.power import rte
 from thermohl.power import ieee
 from thermohl.power import olla
+from thermohl.power import rte
 
 
 def plot_joule_heating(dic):

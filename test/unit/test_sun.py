@@ -6,6 +6,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 import numpy as np
+
 from thermohl.sun import utc2solar_hour
 
 

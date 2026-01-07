@@ -7,6 +7,7 @@
 
 import numpy as np
 import pytest
+
 from thermohl.power.rte.solar_heating import solar_irradiance
 
 
