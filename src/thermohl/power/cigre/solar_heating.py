@@ -64,7 +64,7 @@ class SolarHeating(PowerTerm):
             hour (float | numpy.ndarray): Hour of the day (solar, must be between 0 and 23).
             D (float | numpy.ndarray): external diameter.
             alpha (float | numpy.ndarray): Solar absorption coefficient.
-            srad (float | numpy.ndarray): Optional measured solar irradiance (W/m2).
+            srad (float | numpy.ndarray): Optional solar irradiance (W/m2).
 
         Returns:
             float | numpy.ndarray: Power term value (W.m\ :sup:`-1`\ ).
