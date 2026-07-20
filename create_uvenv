@@ -7,27 +7,42 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # SPDX-License-Identifier: MPL-2.0
 
+set -euo pipefail
+# set -x
+
+DEF_NAME=mewslabs-thermohl-uv
+# PYTHON_VERSION="--python-preference=system"
+PYTHON_VERSION="--python 3.12"
+
+# -----------------------------------------------------------------------------
+
 # -- dir for all envs
 ENV_DIR=${ENV_DIR:-$HOME/ENV}
 mkdir -p $ENV_DIR
 
-# -- current env with link
-VENV=${ENV_DIR}/mewslabs-thermohl-uv
-VLNK=.venv
-ln -sf $VENV $VLNK
-# uv venv $VENV --python-preference=system # --python 3.11
-uv venv --clear $VENV
-source $VENV/bin/activate
+# -- check uv install, update if necessary
+if ! command -v uv &> /dev/null; then
+    echo "uv not found; installing ..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    source $HOME/.cargo/env
+else
+    uv self update
+    echo "uv already installed ($(uv --version))"
+fi
 
-# -- upgrade uv
-uv self update
+# -- current env with link
+VENV=${ENV_DIR}/${DEF_NAME}
+VLNK=.uvenv
+ln -sf $VENV $VLNK
+uv venv --clear $VENV ${PYTHON_VERSION}
+source $VENV/bin/activate
 
 # -- upgrade pip
 uv pip install --upgrade pip
 
-# -- install local package
+## -- install local package
 rm -rf build
-uv sync --group dev
+uv sync --active --group dev
 
 # -- end text
 echo "---"
