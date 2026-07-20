@@ -12,174 +12,123 @@ position is then used to estimate the solar radiation in CIGRE and IEEE
 models.
 """
 
-import numpy as np
+from math import pi
+from typing import Union
 
-from thermohl import floatArrayLike, intArrayLike
+import numpy as np
+import numpy.typing as npt
+from thermohl import (
+    floatArrayLike,
+    dateArrayLike,
+    datetimeArrayLike,
+)
+
+
+def time_to_float_hours(
+    datetime: Union[np.datetime64, npt.NDArray[np.datetime64]],
+) -> Union[float, npt.NDArray[np.float64]]:
+    seconds = (
+        datetime.astype("datetime64[s]") - datetime.astype("datetime64[D]")
+    ).astype(int)  # noqa
+    return seconds / 3600.0
+
+
+def time_to_day_of_year(
+    datetime: Union[np.datetime64, npt.NDArray[np.datetime64]],
+) -> Union[int, npt.NDArray[np.int64]]:
+    return (datetime.astype("datetime64[D]") - datetime.astype("datetime64[Y]")).astype(
+        int
+    ) + 1
 
 
 def utc2solar_hour(
-    hour: floatArrayLike,
-    minute: floatArrayLike = 0.0,
-    second: floatArrayLike = 0.0,
-    lon: floatArrayLike = 0.0,
-):
-    """convert utc hour to solar hour adding the longitude contribution
-
+    datetime_utc: datetimeArrayLike,
+    longitude: floatArrayLike,
+) -> floatArrayLike:
+    """Convert UTC datetime to solar hour adding the longitude contribution.
     If more than one input are numpy arrays, they should have the same size.
 
-    Parameters
-    ----------
-    hour : float or numpy.ndarray
-        Hour of the day (solar, must be between 0 and 23).
-    minute : float or numpy.ndarray, optional
-        Minutes on the clock. The default is 0.
-    second : float or numpy.ndarray, optional
-        Seconds on the clock. The default is 0.
-    lon : float or numpy.ndarray, optional
-        Longitude (in rad). The default is 0.
-
-    Returns
-    -------
-    float or numpy.ndarray
-        solar hour
-
+    :param datetime_utc: Datetime in UTC.
+    :param longitude: Longitude (in rad).
+    :return: Solar hour.
     """
-    # add 4 min (1/15 of an hour) for every degree of east longitude
-    solar_hour = hour % 24 + minute / 60.0 + second / 3600.0 + np.rad2deg(lon) / 15.0
+    day_of_year = time_to_day_of_year(datetime_utc)
+    utc_hour = time_to_float_hours(datetime_utc)
+    B = 2 * pi * (day_of_year - 81) / 365
+    solar_hour = (
+        utc_hour
+        + longitude / (2 * pi) * 24
+        - (7.678 * np.sin(B + 1.374) - 9.87 * np.sin(2 * B)) / 60
+    )
     return solar_hour
 
 
-def hour_angle(
-    hour: floatArrayLike, minute: floatArrayLike = 0.0, second: floatArrayLike = 0.0
-) -> floatArrayLike:
+def hour_angle(solar_hour: floatArrayLike) -> floatArrayLike:
     """Compute hour angle.
-
     If more than one input are numpy arrays, they should have the same size.
 
-    Parameters
-    ----------
-    hour : float or numpy.ndarray
-        Hour of the day (solar, must be between 0 and 23).
-    minute : float or numpy.ndarray, optional
-        Minutes on the clock. The default is 0.
-    second : float or numpy.ndarray, optional
-        Seconds on the clock. The default is 0.
-
-    Returns
-    -------
-    float or numpy.ndarray
-        Hour angle in radians.
-
+    :param solar_hour: solar hour of the day.
+    :return: Hour angle in radians.
     """
-    solar_hour = hour % 24 + minute / 60.0 + second / 3600.0
     return np.radians(15.0 * (solar_hour - 12.0))
 
 
-# Cumulative days of the year at start of each month
-_CSM = np.array([0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334])
-
-
-def solar_declination(month: intArrayLike, day: intArrayLike) -> floatArrayLike:
+def solar_declination(date: dateArrayLike) -> floatArrayLike:
     """Compute solar declination.
-
     If more than one input are numpy arrays, they should have the same size.
 
-    Parameters
-    ----------
-    month : int or numpy.ndarray
-        Month number (must be between 1 and 12)
-    day: int or numpy.ndarray
-        Day of the month (must be between 1 and 28, 29, 30 or 31 depending on
-        month)
-    Returns
-    -------
-    float or numpy.ndarray
-        Solar declination in radians.
-
+    :param date: Date of the year.
+    :return: Solar declination in radians.
     """
-    doy = _CSM[month - 1] + day
-    return np.deg2rad(23.46) * np.sin(2.0 * np.pi * (doy + 284) / 365.0)
+    day_of_year = time_to_day_of_year(date)
+    return np.deg2rad(23.46) * np.sin(2.0 * np.pi * (day_of_year + 284) / 365.0)
 
 
 def solar_altitude(
-    lat: floatArrayLike,
-    month: intArrayLike,
-    day: intArrayLike,
-    hour: floatArrayLike,
-    minute: floatArrayLike = 0.0,
-    second: floatArrayLike = 0.0,
+    latitude: floatArrayLike,
+    date: dateArrayLike,
+    solar_hour: floatArrayLike,
 ) -> floatArrayLike:
     """Compute solar altitude.
-
     If more than one input are numpy arrays, they should have the same size.
 
-    Parameters
-    ----------
-    lat : float or numpy.ndarray
-        latitude in radians.
-    month : int or numpy.ndarray
-        Month number (must be between 1 and 12)
-    day: int or numpy.ndarray
-        Day of the month (must be between 1 and 28, 29, 30 or 31 depending on
-        month)
-    hour : float or numpy.ndarray
-        Hour of the day (solar, must be between 0 and 23).
-    minute : float or numpy.ndarray, optional
-        Minutes on the clock. The default is 0.
-    second : float or numpy.ndarray, optional
-        Seconds on the clock. The default is 0.
-
-    Returns
-    -------
-    float or numpy.ndarray
-        Solar altitude in radians.
-
+    :param latitude: latitude in radians.
+    :param date: Date of the year.
+    :param solar_hour: solar hour of the day.
+    :return: Solar altitude in radians.
     """
-    sd = solar_declination(month, day)
-    ha = hour_angle(hour, minute=minute, second=second)
-    return np.arcsin(np.cos(lat) * np.cos(sd) * np.cos(ha) + np.sin(lat) * np.sin(sd))
+    computed_solar_declination = solar_declination(date)
+    computed_hour_angle = hour_angle(solar_hour)
+    return np.arcsin(
+        np.cos(latitude)
+        * np.cos(computed_solar_declination)
+        * np.cos(computed_hour_angle)
+        + np.sin(latitude) * np.sin(computed_solar_declination)
+    )
 
 
 def solar_azimuth(
-    lat: floatArrayLike,
-    month: intArrayLike,
-    day: intArrayLike,
-    hour: floatArrayLike,
-    minute: floatArrayLike = 0.0,
-    second: floatArrayLike = 0.0,
+    latitude: floatArrayLike,
+    date: dateArrayLike,
+    solar_hour: floatArrayLike,
 ) -> floatArrayLike:
     """Compute solar azimuth.
-
     If more than one input are numpy arrays, they should have the same size.
 
-    Parameters
-    ----------
-    lat : float or numpy.ndarray
-        latitude in radians.
-    month : int or numpy.ndarray
-        Month number (must be between 1 and 12)
-    day: int or numpy.ndarray
-        Day of the month (must be between 1 and 28, 29, 30 or 31 depending on
-        month)
-    hour : float or numpy.ndarray
-        Hour of the day (solar, must be between 0 and 23).
-    minute : float or numpy.ndarray, optional
-        Minutes on the clock. The default is 0.
-    second : float or numpy.ndarray, optional
-        Seconds on the clock. The default is 0.
-
-    Returns
-    -------
-    float or numpy.ndarray
-        Solar azimuth in radians.
-
+    :param latitude: latitude in radians.
+    :param date: Date of the year.
+    :param solar_hour: solar hour of the day.
+    :return: Solar azimuth in radians.
     """
-    sd = solar_declination(month, day)
-    ha = hour_angle(hour, minute=minute, second=second)
-    Xi = np.sin(ha) / (np.sin(lat) * np.cos(ha) - np.cos(lat) * np.tan(sd))
-    C = np.where(
-        Xi >= 0.0,
-        np.where(ha < 0.0, 0.0, np.pi),
-        np.where(ha < 0.0, np.pi, 2.0 * np.pi),
+    computed_solar_declination = solar_declination(date)
+    computed_hour_angle = hour_angle(solar_hour)
+    azimuth_ratio = np.sin(computed_hour_angle) / (
+        np.sin(latitude) * np.cos(computed_hour_angle)
+        - np.cos(latitude) * np.tan(computed_solar_declination)
     )
-    return C + np.arctan(Xi)
+    azimuth_offset_rad = np.where(
+        azimuth_ratio >= 0.0,
+        np.where(computed_hour_angle < 0.0, 0.0, np.pi),
+        np.where(computed_hour_angle < 0.0, np.pi, 2.0 * np.pi),
+    )
+    return azimuth_offset_rad + np.arctan(azimuth_ratio)

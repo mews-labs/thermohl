@@ -9,27 +9,26 @@ from typing import List, Optional, Any
 
 import numpy as np
 
-from thermohl import floatArrayLike, intArrayLike, sun
+from thermohl import floatArrayLike, sun, datetimeArrayLike
 from thermohl.power.power_term import PowerTerm
 
 
 class _SRad:
-    """Solar radiation calculator. Base used for IEEE models and its derivatives."""
+    """Solar radiation calculator."""
 
     def __init__(self, clean: List[float], indus: List[float]):
         """Initialize the solar radiation calculator.
 
-        Args:
-            clean (list[float]): Coefficients for the polynomial function to compute atmospheric turbidity in clean air conditions.
-            indus (list[float]): Coefficients for the polynomial function to compute atmospheric turbidity in industrial (polluted) air conditions.
+        :param clean: Coefficients for the polynomial function to compute atmospheric turbidity in clean air conditions.
+        :param indus: Coefficients for the polynomial function to compute atmospheric turbidity in industrial (polluted) air conditions.
         """
-        if len(clean) != 7 or len(indus) != 7:
-            raise ValueError(f"Both inputs must contain 7 elements.")
         self.clean = clean
         self.indus = indus
 
-    def catm(
-        self, x: floatArrayLike, trb: Optional[floatArrayLike] = 0.0
+    def atmosphere_turbidity(
+        self,
+        solar_altitude: floatArrayLike,
+        turbidity: Optional[floatArrayLike] = 0.0,
     ) -> floatArrayLike:
         """Compute coefficient for atmosphere turbidity.
         This method calculates the atmospheric turbidity coefficient using a polynomial
@@ -37,80 +36,105 @@ class _SRad:
         average of the clean air and industrial air coefficients, with the weights
         determined by the turbidity factor.
 
-        Args:
-            x (float | numpy.ndarray): Solar altitude in degrees.
-            trb (float | numpy.ndarray): Atmospheric turbidity factor (0 for clean air, 1 for industrial air).
-
-        Returns:
-            float | numpy.ndarray: Coefficient for atmospheric turbidity.
+        :param solar_altitude: Solar altitude in degrees.
+        :param turbidity: Atmospheric turbidity factor (0 for clean air, 1 for industrial air).
+        :return: Coefficient for atmospheric turbidity.
         """
-        omt = 1.0 - trb
-        A = omt * self.clean[6] + trb * self.indus[6]
-        B = omt * self.clean[5] + trb * self.indus[5]
-        C = omt * self.clean[4] + trb * self.indus[4]
-        D = omt * self.clean[3] + trb * self.indus[3]
-        E = omt * self.clean[2] + trb * self.indus[2]
-        F = omt * self.clean[1] + trb * self.indus[1]
-        G = omt * self.clean[0] + trb * self.indus[0]
-        return A * x**6 + B * x**5 + C * x**4 + D * x**3 + E * x**2 + F * x**1 + G
+        clean_weight = 1.0 - turbidity
+        coeff_6 = clean_weight * self.clean[6] + turbidity * self.indus[6]
+        coeff_5 = clean_weight * self.clean[5] + turbidity * self.indus[5]
+        coeff_4 = clean_weight * self.clean[4] + turbidity * self.indus[4]
+        coeff_3 = clean_weight * self.clean[3] + turbidity * self.indus[3]
+        coeff_2 = clean_weight * self.clean[2] + turbidity * self.indus[2]
+        coeff_1 = clean_weight * self.clean[1] + turbidity * self.indus[1]
+        coeff_0 = clean_weight * self.clean[0] + turbidity * self.indus[0]
+        return (
+            coeff_6 * solar_altitude**6
+            + coeff_5 * solar_altitude**5
+            + coeff_4 * solar_altitude**4
+            + coeff_3 * solar_altitude**3
+            + coeff_2 * solar_altitude**2
+            + coeff_1 * solar_altitude**1
+            + coeff_0
+        )
 
     def __call__(
         self,
-        lat: floatArrayLike,
-        alt: floatArrayLike,
-        azm: floatArrayLike,
-        trb: floatArrayLike,
-        month: intArrayLike,
-        day: intArrayLike,
-        hour: floatArrayLike,
+        latitude: floatArrayLike,
+        altitude: floatArrayLike,
+        cable_azimuth: floatArrayLike,
+        turbidity: floatArrayLike,
+        datetime_utc: datetimeArrayLike,
     ) -> floatArrayLike:
         """Compute solar radiation."""
-        sa = sun.solar_altitude(lat, month, day, hour)
-        sz = sun.solar_azimuth(lat, month, day, hour)
-        th = np.arccos(np.cos(sa) * np.cos(sz - azm))
-        K = 1.0 + 1.148e-04 * alt - 1.108e-08 * alt**2
-        Q = self.catm(np.rad2deg(sa), trb)
-        sr = K * Q * np.sin(th)
-        return np.where(sr > 0.0, sr, 0.0)
+        date = datetime_utc.astype("datetime64[D]")
+        hour = sun.time_to_float_hours(datetime_utc)
+        computed_solar_altitude = sun.solar_altitude(latitude, date, hour)
+        computed_solar_azimuth = sun.solar_azimuth(latitude, date, hour)
+        computed_incidence_angle = np.arccos(
+            np.cos(computed_solar_altitude)
+            * np.cos(computed_solar_azimuth - cable_azimuth)
+        )
+        altitude_factor = 1.0 + 1.148e-04 * altitude - 1.108e-08 * altitude**2
+        clearness_factor = self.atmosphere_turbidity(
+            np.rad2deg(computed_solar_altitude), turbidity
+        )
+        solar_irradiance = (
+            altitude_factor * clearness_factor * np.sin(computed_incidence_angle)
+        )
+        return np.where(solar_irradiance > 0.0, solar_irradiance, 0.0)
 
 
 class SolarHeatingBase(PowerTerm):
-    """Solar heating term. Base used for IEEE models and its derivatives."""
+    """Solar heating term."""
 
     def __init__(
         self,
-        lat: floatArrayLike,
-        alt: floatArrayLike,
-        azm: floatArrayLike,
-        tb: floatArrayLike,
-        month: intArrayLike,
-        day: intArrayLike,
-        hour: floatArrayLike,
-        D: floatArrayLike,
-        alpha: floatArrayLike,
+        latitude: floatArrayLike,
+        altitude: floatArrayLike,
+        cable_azimuth: floatArrayLike,
+        turbidity: floatArrayLike,
+        datetime_utc: datetimeArrayLike,
+        outer_diameter: floatArrayLike,
+        solar_absorptivity: floatArrayLike,
         est: _SRad,
-        srad: Optional[floatArrayLike] = float("nan"),
+        solar_irradiance: floatArrayLike,
         **kwargs: Any,
     ):
-        self.alpha = alpha
-        if np.all(np.isnan(srad)):
-            self.srad = est(np.deg2rad(lat), alt, np.deg2rad(azm), tb, month, day, hour)
-        else:
-            self.srad = np.maximum(srad, 0.0)
-        self.D = D
+        self.solar_absorptivity = solar_absorptivity
 
-    def value(self, T: floatArrayLike) -> floatArrayLike:
-        r"""Compute solar heating.
+        mask = np.isnan(solar_irradiance)
+        self.solar_irradiance = np.empty_like(solar_irradiance)
+        if np.any(~mask):
+            self.solar_irradiance[~mask] = np.maximum(solar_irradiance, 0.0)
+        if np.any(mask):
+            self.solar_irradiance[mask] = est(
+                np.deg2rad(latitude),
+                altitude,
+                np.deg2rad(cable_azimuth),
+                turbidity,
+                datetime_utc,
+            )
 
-        Args:
-            T (float | numpy.ndarray): Conductor temperature (°C).
+        self.outer_diameter = outer_diameter
 
-        Returns:
-            float | numpy.ndarray: Power term value (W·m⁻¹).
+    def value(self, conductor_temperature: floatArrayLike) -> floatArrayLike:
+        """Compute solar heating.
 
+        :param conductor_temperature: Conductor temperature (°C).
+        :return: Power term value (W·m⁻¹).
         """
-        return self.alpha * self.srad * self.D * np.ones_like(T)
+        return (
+            self.solar_absorptivity
+            * self.solar_irradiance
+            * self.outer_diameter
+            * np.ones_like(conductor_temperature)
+        )
 
     def derivative(self, conductor_temperature: floatArrayLike) -> floatArrayLike:
-        """Compute solar heating derivative."""
+        """Compute solar heating derivative.
+
+        :param conductor_temperature: Conductor temperature.
+        :return: Derivative of solar heating.
+        """
         return np.zeros_like(conductor_temperature)

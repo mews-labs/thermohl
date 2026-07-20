@@ -17,12 +17,13 @@ class ConvectiveCooling(ConvectiveCoolingBase):
 
     def __init__(
         self,
-        alt: floatArrayLike,
-        azm: floatArrayLike,
-        Ta: floatArrayLike,
-        ws: floatArrayLike,
-        wa: floatArrayLike,
-        D: floatArrayLike,
+        altitude: floatArrayLike,
+        cable_azimuth: floatArrayLike,
+        ambient_temperature: floatArrayLike,
+        wind_speed: floatArrayLike,
+        outer_diameter: floatArrayLike,
+        wind_azimuth: floatArrayLike = None,
+        wind_attack_angle: floatArrayLike = None,
         **kwargs: Any,
     ):
         r"""Init with args.
@@ -30,23 +31,24 @@ class ConvectiveCooling(ConvectiveCoolingBase):
         If more than one input are numpy arrays, they should have the same size.
 
         Args:
-            alt (float | numpy.ndarray): Altitude (m).
-            azm (float | numpy.ndarray): Azimuth (deg).
-            Ta (float | numpy.ndarray): Ambient temperature (°C).
-            ws (float | numpy.ndarray): Wind speed (m·s⁻¹).
-            wa (float | numpy.ndarray): Wind angle regarding north (deg).
-            D (float | numpy.ndarray): External diameter (m).
+            altitude (float | numpy.ndarray): Altitude (m).
+            cable_azimuth (float | numpy.ndarray): Azimuth (deg).
+            ambient_temperature (float | numpy.ndarray): Ambient temperature (°C).
+            wind_speed (float | numpy.ndarray): Wind speed (m·s⁻¹).
+            wind_azimuth (float | numpy.ndarray): wind_azimuth regarding north (deg).
+            outer_diameter (float | numpy.ndarray): External diameter (m).
 
         """
         super().__init__(
-            alt,
-            azm,
-            Ta,
-            ws,
-            wa,
-            D,
+            altitude,
+            cable_azimuth,
+            ambient_temperature,
+            wind_speed,
+            outer_diameter,
             Air.volumic_mass,
             Air.dynamic_viscosity,
             Air.thermal_conductivity,
+            wind_azimuth,
+            wind_attack_angle,
             **kwargs,
         )

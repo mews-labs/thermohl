@@ -7,27 +7,29 @@
 
 [build-system]
 requires = [
-    "setuptools>=68.0.0",
+    "setuptools>=68",
+    "setuptools-scm[toml]>=8",
 ]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "thermohl"
-version = "1.4.0-rc0"
+dynamic = ["version"]
 
 description = "Calculations relative to temperature and ampacity in overhead conductors."
 license = "MPL-2.0"
 readme = "README.md"
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.10,<3.15"
 classifiers = [
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
     "Natural Language :: English",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
 ]
 dependencies = [
@@ -39,31 +41,54 @@ dependencies = [
 
 [dependency-groups]
 examples = [
-    "matplotlib ~= 3.9.2",
+    "matplotlib >= 3.10.8",
 ]
 test = [
-    "pytest >= 7.2.2",
+    "pytest >= 9.0.3",
     "pytest-cov >= 6.0.0",
     "pylint >= 3.3.1"
 ]
 lint = [
-    "flake8 >= 7.3.0",
+    "ruff==0.6.1",
     "mypy >= 1.13.0",
 ]
 dev = [
     { include-group = 'test' },
     { include-group = 'lint' },
+    "pre-commit",
 ]
 docs = [
     "mkdocs >= 1.6.1",
-    "mkdocs-bibtex",
-    "mkdocs-jupyter",
-    "mkdocs-material >= 9.6.9",
+    "mkdocs-jupyter == 0.26.3",
+    # temporary constraint to avoid security vulnerabilities
+    # see https://github.com/phlowers/thermohl/security/dependabot/17
+    # and https://github.com/phlowers/thermohl/security/dependabot/18
+    "nbconvert >= 7.17.1",
+    # temporary constraint to avoid security vulnerabilities
+    # see https://github.com/phlowers/thermohl/security/dependabot/19
+    "mistune >= 3.2.1",
+    # temporary constraint to avoid security vulnerabilities
+    # see https://github.com/phlowers/thermohl/security/dependabot/23
+    "urllib3 >= 2.7.0",
+    # temporary constraint to avoid security vulnerabilities
+    # see https://github.com/phlowers/thermohl/security/dependabot/28
+    "idna >= 3.15",
+    # temporary constraint to avoid security vulnerabilities
+    # see https://github.com/phlowers/thermohl/security/dependabot/27
+    "pymdown-extensions >= 10.21.3",
+    "mkdocs-material >= 9.7.6",
     "mkdocstrings[python] >= 0.29.0",
     "markdown_extensions >= 0.0.1",
     "markdown-include >= 0.8.1",
     "mkdocs-markdownextradata-plugin >= 0.2.6",
     { include-group = 'lint' },
+    { include-group = 'notebooks' },
+]
+notebooks = [
+    "ipykernel>=7.3.0",
+    "ipython>=8.39.0",
+    "matplotlib>=3.10.8",
+    "matplotlib-inline>=0.1.7",
 ]
 
 [project.optional-dependencies]
@@ -76,12 +101,6 @@ scientific = [
 "Documentation" = "https://phlowers.readthedocs.io/projects/thermohl"
 "Issues" = "https://github.com/phlowers/thermohl/issues"
 
-[tool.mypy]
-strict = true
-ignore_missing_imports = true
-warn_return_any = false
-#plugins = "numpy.typing.mypy_plugin"
-
 [tool.coverage.run]
 branch = true
 
@@ -93,3 +112,35 @@ exclude_also = [
 ]
 
 ignore_errors = true
+
+[tool.ruff]
+extend-exclude = [
+    "src/thermohl/_version.py",
+    "thermohl-docs/docs/examples/*.ipynb",
+]
+
+[tool.ruff.lint]
+# List of rules to enable
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+]
+
+# List of rules to ignore
+ignore = [
+    "E501", # line too long (handled by ruff format)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.setuptools_scm]
+# Write version in a file while building
+write_to = "src/thermohl/_version.py"
+version_scheme = "post-release"
+local_scheme = "no-local-version"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["test"]

@@ -1,4 +1,4 @@
-<!--
+from thermohl.solver import HeatEquationTypefrom thermohl.solver import SolverType<!--
 SPDX-FileCopyrightText: 2025 RTE (https://www.rte-france.com)
 
 This Source Code Form is subject to the terms of the Mozilla Public
@@ -27,6 +27,30 @@ Use it ! You can report to the user guide section.
 ```shell
     import thermohl
     print(thermohl.__version__)
+```
+
+### Logging
+
+By default, the `thermohl` logger is silent (it uses a `logging.NullHandler`).
+
+To enable log messages in the console, you can use the provided utility function:
+
+```python
+import thermohl.utils
+import logging
+
+thermohl.utils.add_stderr_logger(level=logging.INFO)
+```
+
+Alternatively, you can manually configure the `thermohl` logger using Python's standard `logging` module:
+
+```python
+import logging
+
+logger = logging.getLogger("thermohl")
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+logger.addHandler(handler)
 ```
 
 ## Developers
@@ -80,17 +104,25 @@ surface temperature (°C) of a conductor in steady-state regime along with the c
 
 ```python
 from thermohl import solver
+from thermohl.solver.entities import HeatEquationType
 
-slvr = solver.ieee(dic=None, heateq='1t')
+slvr = solver.ieee(dic=None, heat_equation=HeatEquationType.ONE_TEMPERATURE)
 temp = slvr.steady_temperature() 
 ```
 
-Results from the solver are returned in a `pandas.DataFrame`:
+Results from the solver are returned in a dict where values are numpy arrays::
 
 ``` python
->>> print(temp)
-           t   P_joule  P_solar  P_convection  P_radiation  P_precipitation
-0  27.236417  0.273056  9.64051      6.587129     3.326436              0.0
+>>> temp
+{'temperature': array([27.3325034]),
+ 'joule_power': array([0.27314919]),
+ 'solar_power': array([9.73237776]),
+ 'convection_power': array([6.65130481]),
+ 'radiation_power': array([3.35422215]),
+ 'precipitation_power': array([0.]),
+ 'input_latitude': 45.0,
+  ...
+ }
 ```
 
 ### Example 2
@@ -103,18 +135,24 @@ distinct ampacities (and the lower the ambient temperature, the higher the ampac
 ```python
 import numpy as np
 from thermohl import solver
+from thermohl.solver.entities import HeatEquationType
 
-slvr = solver.ieee(dict(Ta=np.array([0., 15., 30.])), heateq='1t')
+slvr = solver.ieee(dict(ambient_temperature=np.array([0., 15., 30.])), heat_equation=HeatEquationType.ONE_TEMPERATURE)
 Tmax = 80.
 imax = slvr.steady_intensity(Tmax)
 ```
 
 ```
->>> print(imax)
-             I    P_joule  P_solar  P_convection  P_radiation  P_precipitation
-0  1606.398362  83.737734  9.64051     66.750785    26.627459              0.0
-1  1408.025761  64.333311  9.64051     50.884473    23.089348              0.0
-2  1184.741847  45.547250  9.64051     36.234737    18.953023              0.0
+>>> imax
+{'transit': array([1605.51693463, 1407.02006847, 1183.54643897]),
+ 'joule_power': array([83.64586616, 64.2414426 , 45.45538152]),
+ 'solar_power': array([9.73237776, 9.73237776, 9.73237776]),
+ 'convection_power': array([66.75078505, 50.88447273, 36.23473652]),
+ 'radiation_power': array([26.62745888, 23.08934764, 18.95302277]),
+ 'precipitation_power': 0.0,
+ 'input_latitude': 45.0,
+  ...
+ }
 ```
 
 

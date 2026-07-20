@@ -5,168 +5,183 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # SPDX-License-Identifier: MPL-2.0
 
+from datetime import datetime
 import numpy as np
 from numpy import ndarray
 
-from thermohl.solver.base import Args, reshape, _set_dates
+from thermohl.solver.solver import reshape, _set_dates
+from thermohl.solver import Parameters
 
 
 # Tests class Args
 def test_max_len_with_mixed_types():
     dic = {
-        "lat": np.array([45.0, 46.0]),
-        "lon": 10.0,
-        "alt": np.array([20.0, 25.0]),
+        "latitude": np.array([45.0, 46.0]),
+        "longitude": 10.0,
+        "altitude": np.array([20.0, 25.0, 30.0]),
     }
-    args = Args(dic)
+    args = Parameters(dic)
 
-    result = args.shape()
+    result = args.get_number_of_computations()
 
-    assert result == (2,)
-
-
-def test_shape_with_ndarray():
-    dic = {"lat": np.array([45.0, 46.0]), "lon": np.array([10.0, 11.0])}
-    args = Args(dic)
-
-    result = args.shape()
-
-    assert result == (2,)
+    assert result == 3
 
 
-def test_shape_with_scalar():
-    dic = {"lat": 45.0, "lon": 10.0}
-    args = Args(dic)
-
-    result = args.shape()
-
-    assert result == ()
-
-
-def test_shape_with_empty_dict():
-    args = Args({})
-
-    result = args.shape()
-
-    assert result == ()
-
-
-def test_shape_with_varied_lengths():
+def test_max_len_with_ndarray():
     dic = {
-        "lat": np.array([45.0, 46.0]),
-        "lon": np.array([10.0]),
-        "alt": np.array([20.0, 25.0, 30.0]),
+        "latitude": np.array([45.0, 46.0]),
+        "longitude": np.array([10.0, 11.0]),
     }
-    try:
-        args = Args(dic)
-        assert False
-    except ValueError:
-        pass
+    args = Parameters(dic)
+
+    result = args.get_number_of_computations()
+
+    assert result == 2
 
 
-def test_extend_with_nd_array():
-    dic = {"lat": np.array([45.0, 46.0]), "lon": 10.0}
-    args = Args(dic)
+def test_max_len_with_scalar():
+    dic = {"latitude": 45.0, "longitude": 10.0}
+    args = Parameters(dic)
+
+    result = args.get_number_of_computations()
+
+    assert result == 1
+
+
+def test_max_len_with_empty_dict():
+    args = Parameters({})
+
+    result = args.get_number_of_computations()
+
+    assert result == 1
+
+
+def test_max_len_with_varied_lengths():
+    dic = {
+        "latitude": np.array([45.0, 46.0]),
+        "longitude": np.array([10.0]),
+        "altitude": np.array([20.0, 25.0, 30.0]),
+    }
+    args = Parameters(dic)
+
+    result = args.get_number_of_computations()
+
+    assert result == 3
+
+
+def test_extend_to_max_len_with_nd_array():
+    dic = {"latitude": np.array([45.0, 46.0]), "longitude": 10.0}
+    args = Parameters(dic)
 
     args.extend()
 
-    assert isinstance(args.lat, ndarray)
-    assert isinstance(args.lon, ndarray)
-    assert len(args.lat) == 2
-    assert len(args.lon) == 2
-    np.testing.assert_array_equal(args.lat, np.array([45.0, 46.0]))
-    np.testing.assert_array_equal(args.lon, np.array([10.0, 10.0]))
+    assert isinstance(args.latitude, ndarray)
+    assert isinstance(args.longitude, ndarray)
+    assert len(args.latitude) == 2
+    assert len(args.longitude) == 2
+    np.testing.assert_array_equal(args.latitude, np.array([45.0, 46.0]))
+    np.testing.assert_array_equal(args.longitude, np.array([10.0, 10.0]))
 
 
-def test_extend_with_scalar():
-    dic = {"lat": 45.0, "lon": 10.0}
-    args = Args(dic)
-
-    args.extend()
-
-    assert isinstance(args.lat, ndarray)
-    assert isinstance(args.lon, ndarray)
-    assert len(args.lat) == 1
-    assert len(args.lon) == 1
-    np.testing.assert_array_equal(args.lat, np.array([45.0]))
-    np.testing.assert_array_equal(args.lon, np.array([10.0]))
-
-
-def test_extend_with_mixed_types():
-    dic = {"lat": np.array([45.0, 46.0]), "lon": 10.0, "alt": np.array(20.0)}
-    args = Args(dic)
+def test_extend_to_max_len_with_scalar():
+    dic = {"latitude": 45.0, "longitude": 10.0}
+    args = Parameters(dic)
 
     args.extend()
 
-    assert isinstance(args.lat, ndarray)
-    assert isinstance(args.lon, ndarray)
-    assert isinstance(args.alt, ndarray)
-    assert len(args.lat) == 2
-    assert len(args.lon) == 2
-    assert len(args.alt) == 2
-    np.testing.assert_array_equal(args.lat, np.array([45.0, 46.0]))
-    np.testing.assert_array_equal(args.lon, np.array([10.0, 10.0]))
-    np.testing.assert_array_equal(args.alt, np.array([20.0, 20.0]))
+    assert isinstance(args.latitude, ndarray)
+    assert isinstance(args.longitude, ndarray)
+    assert len(args.latitude) == 1
+    assert len(args.longitude) == 1
+    np.testing.assert_array_equal(args.latitude, np.array([45.0]))
+    np.testing.assert_array_equal(args.longitude, np.array([10.0]))
 
 
-def test_extend_with_empty_dict():
-    args = Args({})
+def test_extend_to_max_len_with_mixed_types():
+    dic = {
+        "latitude": np.array([45.0, 46.0]),
+        "longitude": 10.0,
+        "altitude": 20.0,
+    }
+    args = Parameters(dic)
+
+    args.extend()
+
+    assert isinstance(args.latitude, ndarray)
+    assert isinstance(args.longitude, ndarray)
+    assert isinstance(args.altitude, ndarray)
+    assert len(args.latitude) == 2
+    assert len(args.longitude) == 2
+    assert len(args.altitude) == 2
+    np.testing.assert_array_equal(args.latitude, np.array([45.0, 46.0]))
+    np.testing.assert_array_equal(args.longitude, np.array([10.0, 10.0]))
+    np.testing.assert_array_equal(args.altitude, np.array([20.0, 20.0]))
+
+
+def test_extend_to_max_len_with_empty_dict():
+    args = Parameters({})
 
     args.extend()
 
     for key in args.keys():
-        assert isinstance(args[key], (float, int, ndarray))
+        assert isinstance(args[key], (float, int, ndarray, datetime))
         if isinstance(args[key], ndarray):
             assert len(args[key]) == 1
 
 
 def test_compress_with_unique_values():
-    dic = {"lat": np.array([45.0, 45.0]), "lon": np.array([10.0, 10.0])}
-    args = Args(dic)
+    dic = {
+        "latitude": np.array([45.0, 45.0]),
+        "longitude": np.array([10.0, 10.0]),
+    }
+    args = Parameters(dic)
 
     args.compress()
 
-    assert isinstance(args.lat, float)
-    assert args.lat == 45.0
-    assert isinstance(args.lon, float)
-    assert args.lon == 10.0
+    assert isinstance(args.latitude, float)
+    assert args.latitude == 45.0
+    assert isinstance(args.longitude, float)
+    assert args.longitude == 10.0
 
 
 def test_compress_with_non_unique_values():
-    dic = {"lat": np.array([45.0, 46.0]), "lon": np.array([10.0, 11.0])}
-    args = Args(dic)
+    dic = {
+        "latitude": np.array([45.0, 46.0]),
+        "longitude": np.array([10.0, 11.0]),
+    }
+    args = Parameters(dic)
 
     args.compress()
 
-    assert isinstance(args.lat, ndarray)
-    assert isinstance(args.lon, ndarray)
-    np.testing.assert_array_equal(args.lat, np.array([45.0, 46.0]))
-    np.testing.assert_array_equal(args.lon, np.array([10.0, 11.0]))
+    assert isinstance(args.latitude, ndarray)
+    assert isinstance(args.longitude, ndarray)
+    np.testing.assert_array_equal(args.latitude, np.array([45.0, 46.0]))
+    np.testing.assert_array_equal(args.longitude, np.array([10.0, 11.0]))
 
 
 def test_compress_with_mixed_values():
-    dic = {"lat": np.array([45.0, 45.0]), "lon": np.array([10.0, 11.0]), "alt": 20.0}
-    args = Args(dic)
+    dic = {
+        "latitude": np.array([45.0, 45.0]),
+        "longitude": np.array([10.0, 11.0]),
+        "altitude": 20.0,
+    }
+    args = Parameters(dic)
 
     args.compress()
 
-    assert isinstance(args.lat, float)
-    assert args.lat == 45.0
-    assert isinstance(args.lon, ndarray)
-    assert isinstance(args.alt, float)
-    np.testing.assert_array_equal(args.lon, np.array([10.0, 11.0]))
-    assert args.alt == 20.0
+    assert isinstance(args.latitude, float)
+    assert args.latitude == 45.0
+    assert isinstance(args.longitude, ndarray)
+    assert isinstance(args.altitude, float)
+    np.testing.assert_array_equal(args.longitude, np.array([10.0, 11.0]))
+    assert args.altitude == 20.0
 
 
 def test_compress_with_empty_dict():
-    args = Args({})
-
+    args = Parameters({})
     args.compress()
-
     for key in args.keys():
-        assert isinstance(args[key], (float, int, np.integer, np.floating, ndarray))
-        if isinstance(args[key], ndarray):
-            assert len(args[key]) == 1
+        assert isinstance(args[key], (float, np.int64, ndarray, np.datetime64))
 
 
 # Tests Fonctions Base
@@ -225,8 +240,8 @@ def test_reshape_scalar_to_2d():
     np.testing.assert_array_equal(result, expected)
 
 
-def test_reshape_another_scalar_to_2d():
-    array = np.array(0)
+def test_reshape_invalid_shape():
+    array = np.array(0)  # ([1.0, 2.0, 3.0])
     nb_row = 2
     nb_columns = 2
     expected = np.array([[0, 0], [0, 0]])
@@ -236,119 +251,63 @@ def test_reshape_another_scalar_to_2d():
     np.testing.assert_array_equal(result, expected)
 
 
-def test_reshape_invalid_shape():
-    array = np.array([1.0, 2.0, 3.0])
-    nb_row = 2
-    nb_columns = 2
-    try:
-        reshape(array, nb_row, nb_columns)
-        assert False
-    except ValueError:
-        pass
-
-
 def test_set_dates_single_day():
-    month = np.array([1])
-    day = np.array([1])
-    hour = np.array([0])
-    t = np.array([0, 3600, 7200])
+    datetime_utc = np.datetime64("2000-01-01T00:00:00")
+    offset = np.array([0, 3600, 7200])
     n = 1
 
-    months, days, hours = _set_dates(month, day, hour, t, n)
+    result = _set_dates(datetime_utc, offset, n)
 
-    assert months.shape == (3, 1)
-    assert days.shape == (3, 1)
-    assert hours.shape == (3, 1)
-    assert months[0, 0] == 1
-    assert days[0, 0] == 1
-    assert hours[0, 0] == 0.0
-    assert months[1, 0] == 1
-    assert days[1, 0] == 1
-    assert hours[1, 0] == 1.0
-    assert months[2, 0] == 1
-    assert days[2, 0] == 1
-    assert hours[2, 0] == 2.0
+    assert result.shape == (3, 1)
+    assert result[0, 0] == np.datetime64("2000-01-01T00:00:00")
+    assert result[1, 0] == np.datetime64("2000-01-01T01:00:00")
+    assert result[2, 0] == np.datetime64("2000-01-01T02:00:00")
 
 
 def test_set_dates_multiple_days():
-    month = np.array([1])
-    day = np.array([1])
-    hour = np.array([23])
-    t = np.array([0, 3600, 7200])
+    datetime_utc = np.datetime64("2000-01-01T23:00:00")
+    offset = np.array([0, 3600, 7200])
     n = 1
 
-    months, days, hours = _set_dates(month, day, hour, t, n)
+    result = _set_dates(datetime_utc, offset, n)
 
-    assert months.shape == (3, 1)
-    assert days.shape == (3, 1)
-    assert hours.shape == (3, 1)
-    assert months[0, 0] == 1
-    assert days[0, 0] == 1
-    assert hours[0, 0] == 23.0
-    assert months[1, 0] == 1
-    assert days[1, 0] == 2
-    assert hours[1, 0] == 0.0
-    assert months[2, 0] == 1
-    assert days[2, 0] == 2
-    assert hours[2, 0] == 1.0
+    assert result.shape == (3, 1)
+    assert result[0, 0] == np.datetime64("2000-01-01T23:00:00")
+    assert result[1, 0] == np.datetime64("2000-01-02T00:00:00")
+    assert result[2, 0] == np.datetime64("2000-01-02T01:00:00")
 
 
 def test_set_dates_multiple_months():
-    month = np.array([12])
-    day = np.array([31])
-    hour = np.array([23])
-    t = np.array([0, 3600, 7200])
+    datetime_utc = np.datetime64("2000-12-31T23:00:00")
+    offset = np.array([0, 3600, 7200])
     n = 1
 
-    months, days, hours = _set_dates(month, day, hour, t, n)
+    result = _set_dates(datetime_utc, offset, n)
 
-    assert months.shape == (3, 1)
-    assert days.shape == (3, 1)
-    assert hours.shape == (3, 1)
-    assert months[0, 0] == 12
-    assert days[0, 0] == 31
-    assert hours[0, 0] == 23.0
-    assert months[1, 0] == 1
-    assert days[1, 0] == 1
-    assert hours[1, 0] == 0.0
-    assert months[2, 0] == 1
-    assert days[2, 0] == 1
-    assert hours[2, 0] == 1.0
+    assert result.shape == (3, 1)
+    assert result[0, 0] == np.datetime64("2000-12-31T23:00:00")
+    assert result[1, 0] == np.datetime64("2001-01-01T00:00:00")
+    assert result[2, 0] == np.datetime64("2001-01-01T01:00:00")
 
 
 def test_set_dates_multiple_inputs():
-    month = np.array([1, 2])
-    day = np.array([1, 2])
-    hour = np.array([0, 12])
-    t = np.array([0, 3600, 7200])
+    datetime_utc = np.array(
+        [
+            np.datetime64("2000-01-01T00:00:00"),
+            np.datetime64("2000-02-02T12:00:00"),
+        ]
+    )
+    offset = np.array([0, 3600, 7200])
     n = 2
 
-    months, days, hours = _set_dates(month, day, hour, t, n)
+    result = _set_dates(datetime_utc, offset, n)
 
-    assert months.shape == (3, 2)
-    assert days.shape == (3, 2)
-    assert hours.shape == (3, 2)
+    assert result.shape == (3, 2)
 
-    assert months[0, 0] == 1
-    assert days[0, 0] == 1
-    assert hours[0, 0] == 0.0
+    assert result[0, 0] == np.datetime64("2000-01-01T00:00:00")
+    assert result[1, 0] == np.datetime64("2000-01-01T01:00:00")
+    assert result[2, 0] == np.datetime64("2000-01-01T02:00:00")
 
-    assert months[1, 0] == 1
-    assert days[1, 0] == 1
-    assert hours[1, 0] == 1.0
-
-    assert months[2, 0] == 1
-    assert days[2, 0] == 1
-    assert hours[2, 0] == 2.0
-
-    assert months[0, 1] == 2
-    assert days[0, 1] == 2
-    assert hours[0, 1] == 12.0
-
-    assert months[1, 1] == 2
-    assert days[1, 1] == 2
-    assert hours[1, 1] == 13.0
-
-    assert months[2, 1] == 2
-    assert days[2, 1] == 2
-    assert hours[2, 1] == 14.0
+    assert result[0, 1] == np.datetime64("2000-02-02T12:00:00")
+    assert result[1, 1] == np.datetime64("2000-02-02T13:00:00")
+    assert result[2, 1] == np.datetime64("2000-02-02T14:00:00")
