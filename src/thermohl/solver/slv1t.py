@@ -74,7 +74,7 @@ class Solver1T(Solver_):
         Compute transient-state temperature.
 
         Args:
-            offset (numpy.ndarray): A 1D array with times (in seconds) when the temperature needs to be computed. The array must contain increasing values (undefined behaviour otherwise).
+            offset (numpy.ndarray): A 1D array with times (in seconds) when the temperature needs to be computed. The array must contain increasing values (undefined behavior otherwise).
             T0 (float | None): Initial temperature. If None, the ambient temperature from the internal dict will be used. The default is None.
             return_power (bool, optional): Return power term values. The default is False.
 
