@@ -15,6 +15,12 @@ import pandas as pd
 import pytest
 
 from thermohl import solver
+from thermohl.solver.entities import (
+    HeatEquationType,
+    ModelType,
+    TemperatureType,
+    VariableType,
+)
 
 _SCENARIO_FILE = os.path.join("test", "nonreg", "scenario_steady.yaml")
 
@@ -31,86 +37,89 @@ def cable_data(s: str) -> dict:
     else:
         raise ValueError(f"Conductor {s} not found in file {f}.")
 
+
 def _get_scenario(name: str) -> dict:
     """Build scalar solver inputs for a steady scenario."""
     dp = cable_data(name)
     dct = dp | dict(
-        lat=46.0,
-        lon=0.0,
-        alt=1.0,
-        azm=90.0,
-        month=6,
-        day=21,
-        hour=12.0,
-        Ta=20.0,
-        Pa=1.0e05,
-        rh=0.8,
-        pr=0.0,
-        ws=3.0,
-        wa=0.0,
-        al=0.8,
-        tb=0.1,
-        srad=float("nan"),
-        I=555.0,
-        alpha=0.9,
-        epsilon=0.8,
-        RDCHigh=3.05e-05,
-        RDCLow=2.66e-05,
-        THigh=60.0,
-        TLow=20.0,
+        latitude=46.0,
+        longitude=0.0,
+        altitude=1.0,
+        cable_azimuth=90.0,
+        datetime_utc=np.datetime64("2025-06-21T12:00:00"),
+        measured_global_radiation=np.nan,
+        solar_irradiance=np.nan,
+        ambient_temperature=20.0,
+        ambient_pressure=1.0e05,
+        relative_humidity=0.8,
+        precipitation_rate=0.0,
+        wind_speed=3.0,
+        wind_azimuth=0.0,
+        nebulosity=np.nan,
+        albedo=0.8,
+        turbidity=0.1,
+        transit=555.0,
+        solar_absorptivity=0.9,
+        emissivity=0.8,
+        linear_resistance_temp_high=3.05e-05,
+        linear_resistance_temp_low=2.66e-05,
+        temp_high=60.0,
+        temp_low=20.0,
     )
     return dct
 
+
 # physical [min, max] ranges for the fully-random scenario, one entry per dct
-# field. Bounds are taken from src/thermohl/default_uncertainties.yaml where that
-# file provides them; fields absent from it (or given as a distribution without
-# min/max) use hand-picked ranges. month/day are drawn as integers (they index
-# the solar-declination table), every other field is uniform float.
+# field. month/day are drawn as integers (they are folded into datetime_utc),
+# every other field is uniform float.
 _RANDOM_SIZE = 128
 _INTEGER_FIELDS = ("month", "day")
+# cumulative days before each month (non-leap calendar), used to map a random
+# (month, day) pair to a day-of-year when building datetime_utc.
+_CUMULATIVE_DAYS = np.array([0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334])
 _RANDOM_RANGES = {
     # conductor geometry / physical params
-    "D": (0.005, 0.1),
-    "d": (0.0, 0.05),
-    "A": (2.0e-05, 2.0e-03),
-    "a": (0.0, 5.0e-04),
-    "RDC20": (1.0e-05, 1.0e-03),
-    "m": (0.1, 5.0),
-    "c": (500.0, 1000.0),
-    "R": (0.02, 0.20),
-    "l": (0.7, 1.5),
-    "kl": (3.5e-03, 4.1e-03),
-    "kq": (5.0e-08, 1.5e-07),
-    "km": (0.9, 1.1),
-    "ki": (0.0, 1.6E-02),
+    "outer_diameter": (0.005, 0.1),
+    "core_diameter": (0.0, 0.05),
+    "outer_area": (2.0e-05, 2.0e-03),
+    "core_area": (0.0, 5.0e-04),
+    "linear_resistance_dc_20c": (1.0e-05, 1.0e-03),
+    "linear_mass": (0.1, 5.0),
+    "heat_capacity": (500.0, 1000.0),
+    "roughness_ratio": (0.02, 0.20),
+    "radial_thermal_conductivity": (0.7, 1.5),
+    "temperature_coeff_linear": (3.5e-03, 4.1e-03),
+    "temperature_coeff_quadratic": (5.0e-08, 1.5e-07),
+    "magnetic_coeff": (0.9, 1.1),
+    "magnetic_coeff_per_a": (0.0, 1.6e-02),
     # position / geometry
-    "lat": (35.0, 55.0),
-    "lon": (-4.9, 8.3),
-    "alt": (0.0, 3000.0),
-    "azm": (0.0, 360.0),
-    # calendar (integers)
+    "latitude": (35.0, 55.0),
+    "longitude": (-4.9, 8.3),
+    "altitude": (0.0, 3000.0),
+    "cable_azimuth": (0.0, 360.0),
+    # calendar (integers), folded into datetime_utc below
     "month": (1, 12),
     "day": (1, 31),
     "hour": (0.0, 24.0),
     # weather
-    "Ta": (-40.0, 50.0),
-    "Pa": (0.870e05, 1.050e05),
-    "rh": (0.0, 1.0),
-    "pr": (0.0, 0.05),
-    "ws": (0.0, 100.0),
-    "wa": (0.0, 360.0),
-    "al": (0.0, 1.0),
-    "tb": (0.0, 1.0),
-    # "srad": (0.0, 0.0),
+    "ambient_temperature": (-40.0, 50.0),
+    "ambient_pressure": (0.870e05, 1.050e05),
+    "relative_humidity": (0.0, 1.0),
+    "precipitation_rate": (0.0, 0.05),
+    "wind_speed": (0.0, 100.0),
+    "wind_azimuth": (0.0, 360.0),
+    "albedo": (0.0, 1.0),
+    "turbidity": (0.0, 1.0),
     # load / material
-    "I": (0.0, 999.0),
-    "alpha": (0.23, 0.93),
-    "epsilon": (0.13, 0.83),
-    "RDCHigh": (2.0e-05, 8.0e-05),
-    "RDCLow": (2.0e-05, 8.0e-05),
-    "THigh": (55.0, 65.0),
-    "TLow": (15., 25.0),
+    "transit": (0.0, 999.0),
+    "solar_absorptivity": (0.23, 0.93),
+    "emissivity": (0.13, 0.83),
+    "linear_resistance_temp_high": (2.0e-05, 8.0e-05),
+    "linear_resistance_temp_low": (2.0e-05, 8.0e-05),
+    "temp_high": (55.0, 65.0),
+    "temp_low": (15.0, 25.0),
 }
+
 
 def _get_scenario_random(seed: int) -> dict:
     """Build a fully-random batch of solver inputs (uniform per field, fixed seed)."""
@@ -121,7 +130,21 @@ def _get_scenario_random(seed: int) -> dict:
             dct[field] = rng.integers(lo, hi + 1, size=_RANDOM_SIZE)
         else:
             dct[field] = rng.uniform(lo, hi, size=_RANDOM_SIZE)
+
+    # fold calendar fields into a single datetime_utc (new API). (month, day) is
+    # mapped to a day-of-year via a fixed non-leap calendar, then to a concrete
+    # 2025 date, so every draw yields a valid datetime regardless of the day.
+    month = dct.pop("month")
+    day = dct.pop("day")
+    hour = dct.pop("hour")
+    day_of_year = (_CUMULATIVE_DAYS[month - 1] + day - 1) % 365
+    dct["datetime_utc"] = (
+        np.datetime64("2025-01-01T00:00:00")
+        + day_of_year.astype("timedelta64[D]")
+        + (hour * 3600.0).astype("int64").astype("timedelta64[s]")
+    )
     return dct
+
 
 def _make_scenarios() -> dict:
     """Build the scenario specs (heat equation, model, conductor)."""
@@ -130,7 +153,9 @@ def _make_scenarios() -> dict:
     heat_equations = ["1t", "3t"]
 
     scenario = {}
-    for heat_equation, model, conductor in itertools.product(heat_equations, models, conductors):
+    for heat_equation, model, conductor in itertools.product(
+        heat_equations, models, conductors
+    ):
         scenario[f"{heat_equation}-{model}-{conductor}"] = {
             "heat_equation": heat_equation,
             "model": model,
@@ -138,7 +163,9 @@ def _make_scenarios() -> dict:
         }
 
     # fully-random array batch, one per heat equation x model (fixed seed each)
-    for seed, (heat_equation, model) in enumerate(itertools.product(heat_equations, models)):
+    for seed, (heat_equation, model) in enumerate(
+        itertools.product(heat_equations, models)
+    ):
         scenario[f"{heat_equation}-{model}-random"] = {
             "heat_equation": heat_equation,
             "model": model,
@@ -147,6 +174,7 @@ def _make_scenarios() -> dict:
 
     return scenario
 
+
 def _run_scenario(s: dict):
     """Build the solver from a scenario spec, run steady temperature + ampacity.
 
@@ -154,33 +182,41 @@ def _run_scenario(s: dict):
     exact same setup. Returns ``(res_temperature, res_intensity)``.
     """
     dc = _get_scenario_random(s["seed"]) if "seed" in s else _get_scenario(s["conductor"])
-    slv = solver._factory(dc, heateq=s["heat_equation"], model=s["model"])
+    slv = solver._factory(
+        dc,
+        heat_equation=HeatEquationType(s["heat_equation"]),
+        model=ModelType(s["model"]),
+    )
 
     if s["heat_equation"] == "3t":
         # the 1t solve is robust; use it as initial guess for the 3t surface and
         # core temperatures to help the quasi-Newton solver converge
-        guess = (
-            solver._factory(dc, heateq="1t", model=s["model"])
-            .steady_temperature(return_power=False)[solver.Solver.Names.temp]
-            .to_numpy()
+        guess = solver._factory(
+            dc, heat_equation=HeatEquationType("1t"), model=ModelType(s["model"])
+        ).steady_temperature(return_power=False)[VariableType.TEMPERATURE.value]
+        res_temperature = slv.steady_temperature(
+            surface_temperature_guess=guess,
+            core_temperature_guess=guess,
+            return_power=False,
         )
-        res_temperature = slv.steady_temperature(Tsg=guess, Tcg=guess, return_power=False)
     else:
         res_temperature = slv.steady_temperature(return_power=False)
 
-    res_intensity = slv.steady_intensity(T=_TMAX, return_power=False)
+    res_intensity = slv.steady_intensity(max_conductor_temperature=_TMAX, return_power=False)
 
     return res_temperature, res_intensity
 
+
 # yaml field names for the stored reference temperatures, per heat equation
 _TEMP_FIELDS = {
-    "1t": {"temperature": solver.Solver.Names.temp},
+    "1t": {"temperature": VariableType.TEMPERATURE.value},
     "3t": {
-        "surface_temperature": solver.Solver.Names.tsurf,
-        "average_temperature": solver.Solver.Names.tavg,
-        "core_temperature": solver.Solver.Names.tcore,
+        "surface_temperature": TemperatureType.SURFACE.value,
+        "average_temperature": TemperatureType.AVERAGE.value,
+        "core_temperature": TemperatureType.CORE.value,
     },
 }
+
 
 def _skip_ampacity(s: dict) -> bool:
     """The 3t ampacity solver is multistable on the fully-random inputs: it
@@ -190,6 +226,7 @@ def _skip_ampacity(s: dict) -> bool:
     """
     return "seed" in s and s["heat_equation"] == "3t"
 
+
 def _gen_scenario_steady():
     """Generate scenarios, compute results and write the yaml non-reg reference."""
     scenario = _make_scenarios()
@@ -197,13 +234,19 @@ def _gen_scenario_steady():
     for s in scenario.values():
         res_temperature, res_intensity = _run_scenario(s)
         for field, key in _TEMP_FIELDS[s["heat_equation"]].items():
-            s[field] = res_temperature[key].tolist()
+            s[field] = np.asarray(res_temperature[key]).tolist()
         if not _skip_ampacity(s):
-            s["max_intensity"] = res_intensity[solver.Solver.Names.transit].tolist()
+            s["max_intensity"] = np.asarray(
+                res_intensity[VariableType.TRANSIT.value]
+            ).tolist()
 
     yaml.dump(scenario, open(_SCENARIO_FILE, "w"))
 
-_REFERENCE = yaml.safe_load(open(_SCENARIO_FILE, "r")) if os.path.exists(_SCENARIO_FILE) else {}
+
+_REFERENCE = (
+    yaml.safe_load(open(_SCENARIO_FILE, "r")) if os.path.exists(_SCENARIO_FILE) else {}
+)
+
 
 @pytest.mark.parametrize("sid", list(_REFERENCE), ids=list(_REFERENCE))
 def test_scenario_steady(sid):
@@ -216,4 +259,6 @@ def test_scenario_steady(sid):
     for field, key in _TEMP_FIELDS[s["heat_equation"]].items():
         assert np.allclose(res_temperature[key], s[field], atol=atol)
     if not _skip_ampacity(s):
-        assert np.allclose(res_intensity[solver.Solver.Names.transit], s["max_intensity"], atol=atol)
+        assert np.allclose(
+            res_intensity[VariableType.TRANSIT.value], s["max_intensity"], atol=atol
+        )
