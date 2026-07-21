@@ -20,7 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, windows-latest ]
-        python-version: [ "3.9", "3.10", "3.11", "3.12" ]
+        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
 
     steps:
       - name: 📃 Checkout sources
@@ -58,13 +58,13 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           version: "0.9.15"
-          python-version: 3.11
+          python-version: 3.12
 
       - name: Build SDist and wheel
         run: uvx --from build pyproject-build
 
       - name: Upload SDist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Packages
           path: dist/*

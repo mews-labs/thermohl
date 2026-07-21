@@ -6,39 +6,54 @@
 # SPDX-License-Identifier: MPL-2.0
 
 import numpy as np
-import pandas as pd
 
 from thermohl import solver
+from thermohl.solver import HeatEquationType, ModelType
+from thermohl.solver.entities import (
+    TargetType,
+    TemperatureType,
+    VariableType,
+)
 
 
 def _solvers():
     li = []
-    for ht in ["1t", "3t"]:
-        for m in ["rte", "cigre", "ieee", "olla"]:
-            li.append(solver._factory(dic=None, heateq=ht, model=m))
+    for heat_equation in [
+        HeatEquationType.ONE_TEMPERATURE,
+        HeatEquationType.THREE_TEMPERATURES,
+    ]:
+        for m in [
+            ModelType.RTE,
+            ModelType.CIGRE,
+            ModelType.IEEE,
+            ModelType.OLLA,
+        ]:
+            li.append(solver._factory(dic=None, heat_equation=heat_equation, model=m))
     return li
 
 
-def _ampargs(s: solver.Solver, t: pd.DataFrame):
+def _ampargs(s: solver.Solver, t: dict[str, np.array]):
     if isinstance(s, solver.Solver1T):
-        a = dict(T=t[solver.Solver.Names.temp].values)
+        a = {"max_conductor_temperature": t[VariableType.TEMPERATURE.value]}
     elif isinstance(s, solver.Solver3T):
-        a = dict(T=t[solver.Solver.Names.tsurf].values, target=solver.Solver.Names.surf)
+        a = {
+            "max_conductor_temperature": t[TemperatureType.SURFACE.value],
+            "target": TargetType.SURFACE,
+        }
     else:
         raise NotImplementedError
     return a
 
 
-def _traargs(s: solver.Solver, ds: pd.DataFrame, t: np.ndarray, dyn: dict):
+def _traargs(s: solver.Solver, ds: dict[str, np.array], t):
     if isinstance(s, solver.Solver1T):
-        a = dict(time=t, T0=ds[solver.Solver.Names.temp].values, dynamic=dyn)
+        a = {"time": t, "T0": ds[VariableType.TEMPERATURE.value]}
     elif isinstance(s, solver.Solver3T):
-        a = dict(
-            time=t,
-            Ts0=ds[solver.Solver.Names.tsurf].values,
-            Tc0=ds[solver.Solver.Names.tcore].values,
-            dynamic=dyn,
-        )
+        a = {
+            "time": t,
+            "surface_temperature_0": ds[TemperatureType.SURFACE.value],
+            "core_temperature_0": ds[TemperatureType.CORE.value],
+        }
     else:
         raise NotImplementedError
     return a
@@ -47,7 +62,13 @@ def _traargs(s: solver.Solver, ds: pd.DataFrame, t: np.ndarray, dyn: dict):
 def test_power_default():
     """Check that PowerTerm.value(x) returns correct shape depending on init dict and temperature input."""
     for s in _solvers():
-        for p in [s.jh, s.sh, s.cc, s.rc, s.pc]:
+        for p in [
+            s.joule_heating,
+            s.solar_heating,
+            s.convective_cooling,
+            s.radiative_cooling,
+            s.precipitation_cooling,
+        ]:
             p.__init__(**s.args.__dict__)
             assert np.isscalar(p.value(0.0))
             assert p.value(np.array([0.0])).shape == (1,)
@@ -59,10 +80,16 @@ def test_power_1d():
     n = 61
     for s in _solvers():
         d = s.args.__dict__.copy()
-        d["I"] = np.linspace(0.0, +999.0, n)
-        d["alpha"] = np.linspace(0.5, 0.9, n)
-        d["Ta"] = np.linspace(-10.0, +50.0, n)
-        for p in [s.jh, s.sh, s.cc, s.rc, s.pc]:
+        d[VariableType.TRANSIT.value] = np.linspace(0.0, +999.0, n)
+        d["solar_absorptivity"] = np.linspace(0.5, 0.9, n)
+        d["ambient_temperature"] = np.linspace(-10.0, +50.0, n)
+        for p in [
+            s.joule_heating,
+            s.solar_heating,
+            s.convective_cooling,
+            s.radiative_cooling,
+            s.precipitation_cooling,
+        ]:
             p.__init__(**d)
             v = p.value(0.0)
             assert np.isscalar(v) or v.shape == (n,)
@@ -72,81 +99,91 @@ def test_power_1d():
 
 
 def test_steady_default():
-    for s in _solvers():
-        t = s.steady_temperature()
-        a = _ampargs(s, t)
-        i = s.steady_intensity(**a)
-        assert len(t) == 1
-        assert len(i) == 1
+    for _solver in _solvers():
+        temperature = _solver.steady_temperature()
+        a = _ampargs(_solver, temperature)
+        intensity = _solver.steady_intensity(**a)
+        assert len(list(temperature.values())[0]) == 1
+        assert len(list(intensity.values())[0]) == 1
 
 
 def test_steady_1d():
     n = 61
-    for s in _solvers():
-        s.args.Ta = np.linspace(-10, +50, n)
-        s.update()
-        t = s.steady_temperature()
-        a = _ampargs(s, t)
-        i = s.steady_intensity(**a)
-        assert len(t) == n
-        assert len(i) == n
+    for _solver in _solvers():
+        _solver.args.ambient_temperature = np.linspace(-10, +50, n)
+        _solver.update()
+        temperature = _solver.steady_temperature()
+        a = _ampargs(_solver, temperature)
+        intensity = _solver.steady_intensity(**a)
+        assert len(list(temperature.values())[0]) == n
+        assert len(list(intensity.values())[0]) == n
 
 
 def test_steady_1d_mix():
     n = 61
-    for s in _solvers():
-        s.args.Ta = np.linspace(-10, +50, n)
-        s.args.I = np.array(199.0)
-        s.update()
-        t = s.steady_temperature()
-        a = _ampargs(s, t)
-        i = s.steady_intensity(**a)
-        assert len(t) == n
-        assert len(i) == n
+    for _solver in _solvers():
+        _solver.args.ambient_temperature = np.linspace(-10, +50, n)
+        _solver.args.transit = np.array([199.0])
+        _solver.update()
+        temperature = _solver.steady_temperature()
+        a = _ampargs(_solver, temperature)
+        intensity = _solver.steady_intensity(**a)
+        assert len(list(temperature.values())[0]) == n
+        assert len(list(intensity.values())[0]) == n
 
 
-def test_transient_no_dyn():
-    for s in _solvers():
-        t = np.linspace(0, 3600, 361)
-        ds = s.steady_temperature()
-        a = _traargs(s, ds, t, None)
+def test_transient_0():
+    for _solver in _solvers():
+        time = np.linspace(0, 3600, 361)
 
-        r = s.transient_temperature(**a)
-        assert len(r.pop("time")) == len(t)
-        for k in r.keys():
-            assert r[k].shape == (len(t),)
+        steady_temperature = _solver.steady_temperature()
+        transient_temperature_args = _traargs(_solver, steady_temperature, time)
 
-        r = s.transient_temperature(**{**a, "return_power": True})
+        result_without_power = _solver.transient_temperature(
+            **transient_temperature_args
+        )
+        assert len(result_without_power.pop(VariableType.TIME.value)) == len(time)
+        for key, value in result_without_power.items():
+            if key.startswith("input_"):
+                continue
+            assert value.shape == (len(time),)
 
-        assert len(r.pop("time")) == len(t)
-        for k in r.keys():
-            assert r[k].shape == (len(t),)
+        result_with_power = _solver.transient_temperature(
+            **{**transient_temperature_args, "return_power": True}
+        )
+
+        assert len(result_with_power.pop(VariableType.TIME.value)) == len(time)
+        for key, value in result_with_power.items():
+            if key.startswith("input_"):
+                continue
+            assert value.shape == (len(time),), value
 
 
 def test_transient_1():
     n = 7
-    for s in _solvers():
-        s.args.Ta = np.linspace(-10, +50, n)
-        s.update()
+    for _solver in _solvers():
+        _solver.args.ambient_temperature = np.linspace(-10, +50, n)
+        _solver.update()
 
-        t = np.linspace(0, 3600, 361)
-        d = {
-            "I": 199 * np.ones_like(t),
-            "Ta": 33.0,
-            "Pa": np.array(1.013e05),
-            "ws": 2.0 * np.ones(n),
-            "wa": np.ones((len(t), n)),
-        }
+        time = np.linspace(0, 3600, 361)
 
-        ds = s.steady_temperature()
-        a = _traargs(s, ds, t, d)
+        steady_temperature = _solver.steady_temperature()
+        transient_temperature_args = _traargs(_solver, steady_temperature, time)
 
-        r = s.transient_temperature(**a)
-        assert len(r.pop("time")) == len(t)
-        for k in r.keys():
-            assert r[k].shape == (len(t), n)
+        result_without_power = _solver.transient_temperature(
+            **transient_temperature_args
+        )
+        assert len(result_without_power.pop(VariableType.TIME.value)) == len(time)
+        for key, value in result_without_power.items():
+            if key.startswith("input_"):
+                continue
+            assert value.shape == (len(time), n)
 
-        r = s.transient_temperature(**{**a, "return_power": True})
-        assert len(r.pop("time")) == len(t)
-        for k in r.keys():
-            assert r[k].shape == (len(t), n)
+        result_with_power = _solver.transient_temperature(
+            **{**transient_temperature_args, "return_power": True}
+        )
+        assert len(result_with_power.pop(VariableType.TIME.value)) == len(time)
+        for key, value in result_with_power.items():
+            if key.startswith("input_"):
+                continue
+            assert value.shape == (len(time), n)

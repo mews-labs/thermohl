@@ -5,18 +5,31 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # SPDX-License-Identifier: MPL-2.0
 
-from importlib.metadata import version
+import logging
 from typing import Union, List
 
 import numpy as np
 import numpy.typing as npt
 
-__version__ = version("thermohl")
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
+logger.debug("Thermohl package initialized.")
+
+try:
+    from ._version import __version__
+except ImportError:
+    try:
+        from importlib.metadata import version
+
+        __version__ = version("thermohl")
+    except Exception:
+        __version__ = "unknown"
 
 floatArrayLike = Union[float, npt.NDArray[np.float64]]
-intArrayLike = Union[int, npt.NDArray[np.int64]]
 numberArrayLike = Union[float, int, npt.NDArray[np.float64], npt.NDArray[np.int64]]
 strListLike = Union[str, List[str]]
+dateArrayLike = Union[np.datetime64, npt.NDArray[np.datetime64]]
+datetimeArrayLike = Union[np.datetime64, npt.NDArray[np.datetime64]]
 
 floatArray = npt.NDArray[np.float64]
 intArray = npt.NDArray[np.int64]

@@ -5,8 +5,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # SPDX-License-Identifier: MPL-2.0
 
-from thermohl.solver.base import Solver as Solver_
-
-
-class Solver1D(Solver_):
-    pass
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.1  # same version as ruff in pyproject
+    hooks:
+      - id: ruff-format
+      - id: ruff
+        args: ["--fix"]

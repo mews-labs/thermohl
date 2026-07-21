@@ -5,46 +5,37 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # SPDX-License-Identifier: MPL-2.0
 
-from typing import Optional, Any
+from typing import Any
 
-from thermohl import floatArrayLike, intArrayLike
+
+from thermohl import floatArrayLike, datetimeArrayLike
 from thermohl.power import _SRad, SolarHeatingBase
 
 
 class SolarHeating(SolarHeatingBase):
     def __init__(
         self,
-        lat: floatArrayLike,
-        alt: floatArrayLike,
-        azm: floatArrayLike,
-        tb: floatArrayLike,
-        month: intArrayLike,
-        day: intArrayLike,
-        hour: floatArrayLike,
-        D: floatArrayLike,
-        alpha: floatArrayLike,
-        srad: Optional[floatArrayLike] = float("nan"),
+        latitude: floatArrayLike,
+        altitude: floatArrayLike,
+        cable_azimuth: floatArrayLike,
+        turbidity: floatArrayLike,
+        datetime_utc: datetimeArrayLike,
+        outer_diameter: floatArrayLike,
+        solar_absorptivity: floatArrayLike,
+        solar_irradiance: floatArrayLike,
         **kwargs: Any,
     ):
-        r"""Init with args.
-
+        """Init with args.
         If more than one input are numpy arrays, they should have the same size.
 
-        Args:
-            lat (float | numpy.ndarray): Latitude.
-            alt (float | numpy.ndarray): Altitude.
-            azm (float | numpy.ndarray): Azimuth.
-            tb (float | numpy.ndarray): Air pollution from 0 (clean) to 1 (polluted).
-            month (int | numpy.ndarray): Month number (must be between 1 and 12).
-            day (int | numpy.ndarray): Day of the month (must be between 1 and 28, 29, 30 or 31 depending on month).
-            hour (float | numpy.ndarray): Hour of the day (solar, must be between 0 and 23).
-            D (float | numpy.ndarray): external diameter.
-            alpha (float | numpy.ndarray): Solar absorption coefficient.
-            srad (float | numpy.ndarray | None): Optional solar radiation term.
-
-        Returns:
-            float or np.ndarray: Power term value (W.m\ :sup:`-1`\ ).
-
+        :param latitude: Latitude in degrees.
+        :param altitude: Altitude.
+        :param cable_azimuth: Azimuth of the conductor in degrees.
+        :param turbidity: Air pollution from 0 (clean) to 1 (polluted).
+        :param datetime_utc: Datetime in UTC.
+        :param outer_diameter: external diameter of the conductor.
+        :param solar_absorptivity: Solar absorption coefficient of the conductor.
+        :param solar_irradiance: Optional precomputed solar irradiance term.
         """
         est = _SRad(
             [
@@ -67,5 +58,14 @@ class SolarHeating(SolarHeatingBase):
             ],
         )
         super().__init__(
-            lat, alt, azm, tb, month, day, hour, D, alpha, est, srad, **kwargs
+            latitude,
+            altitude,
+            cable_azimuth,
+            turbidity,
+            datetime_utc,
+            outer_diameter,
+            solar_absorptivity,
+            est,
+            solar_irradiance,
+            **kwargs,
         )

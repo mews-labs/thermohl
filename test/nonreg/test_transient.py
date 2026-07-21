@@ -15,6 +15,12 @@ import pandas as pd
 import pytest
 
 from thermohl import solver
+from thermohl.solver.entities import (
+    HeatEquationType,
+    ModelType,
+    TemperatureType,
+    VariableType,
+)
 
 _SCENARIO_FILE = os.path.join("test", "nonreg", "scenario_transient.yaml")
 
@@ -28,15 +34,16 @@ def cable_data(s: str) -> dict:
     else:
         raise ValueError(f"Conductor {s} not found in file {f}.")
 
+
 def _get_scenario_default(
-        name:str,
-        I0: float,
-        If: float,
-        u0: float,
-        uf: float,
-        t0: float,
-        tf: float,
-        nt: int
+    name: str,
+    I0: float,
+    If: float,
+    u0: float,
+    uf: float,
+    t0: float,
+    tf: float,
+    nt: int,
 ):
     # conductor data
     dp = cable_data(name)
@@ -45,73 +52,50 @@ def _get_scenario_default(
     t = np.linspace(t0, tf, nt)
 
     # transit
-    I = np.zeros_like(t)
-    I[t < 0.0] = I0
-    I[t >= 0.0] = If
+    intensity = np.zeros_like(t)
+    intensity[t < 0.0] = I0
+    intensity[t >= 0.0] = If
 
     # wind speed
     u = np.zeros_like(t)
     u[t < 0.0] = u0
     u[t >= 0.0] = uf
 
-    # solver input
-    # dct = dp | dict(
-    #     latitude=46.0,
-    #     longitude=0.0,
-    #     altitude=1.0,
-    #     cable_azimuth=90.0,
-    #     datetime_utc=np.datetime64("2025-06-21T00:00:00"),
-    #     measured_global_radiation=np.nan,
-    #     solar_irradiance=np.nan,
-    #     ambient_temperature=20.0,
-    #     ambient_pressure=1.0e5,
-    #     relative_humidity=0.8,
-    #     precipitation_rate=0.0,
-    #     wind_speed=3.0,
-    #     wind_azimuth=0.0,
-    #     nebulosity=np.nan,
-    #     albedo=0.8,
-    #     turbidity=0.1,
-    #     transit=555.0,
-    #     solar_absorptivity=0.9,
-    #     emissivity=0.8,
-    # )
-
+    # solver input; all args set explicitly so results do not depend on any
+    # (possibly changed) default value.
     dct = dp | dict(
-        lat=46.0,
-        lon=0.0,
-        alt=1.0,
-        azm=90.0,
-        month=6,
-        day=21,
-        hour=0.0,
-        Ta=20.0,
-        Pa = 1.0e05,
-        rh = 0.8,
-        pr = 0.0,
-        ws=3.0,
-        wa=0,
-        al = 0.8,
-        tb = 0.1,
-        srad = float("nan"),
-        I=555.0,
-        alpha=0.9,
-        epsilon=0.8,
-        RDCHigh = 3.05e-05,
-        RDCLow = 2.66e-05,
-        THigh = 60.0,
-        TLow = 20.0,
+        latitude=46.0,
+        longitude=0.0,
+        altitude=1.0,
+        cable_azimuth=90.0,
+        datetime_utc=np.datetime64("2025-06-21T00:00:00"),
+        measured_global_radiation=np.nan,
+        solar_irradiance=np.nan,
+        ambient_temperature=20.0,
+        ambient_pressure=1.0e05,
+        relative_humidity=0.8,
+        precipitation_rate=0.0,
+        wind_speed=3.0,
+        wind_azimuth=0.0,
+        nebulosity=np.nan,
+        albedo=0.8,
+        turbidity=0.1,
+        transit=555.0,
+        solar_absorptivity=0.9,
+        emissivity=0.8,
+        linear_resistance_temp_high=3.05e-05,
+        linear_resistance_temp_low=2.66e-05,
+        temp_high=60.0,
+        temp_low=20.0,
     )
 
-    Ta = None
-    wa = None
+    ambient_temperature = None
+    wind_azimuth = None
 
-    return dct, t, I, Ta, u, wa
+    return dct, t, intensity, ambient_temperature, u, wind_azimuth
 
-def _get_scenario_enhanced(
-        name:str,
-        key
-):
+
+def _get_scenario_enhanced(name: str, key):
     """Generate transient scenarios with key in ['A'-'H']."""
     I0 = 222.0
     If = 888.0
@@ -121,7 +105,9 @@ def _get_scenario_enhanced(
     tf = 2700.0
     nt = 301
 
-    dct, t, I, Ta, u, wa = _get_scenario_default(name, I0, If, u0, uf, t0, tf, nt)
+    dct, t, intensity, ambient_temperature, u, wind_azimuth = _get_scenario_default(
+        name, I0, If, u0, uf, t0, tf, nt
+    )
 
     ix = t >= 0.0
     ft = 2 * np.pi / 700.0
@@ -132,7 +118,7 @@ def _get_scenario_enhanced(
 
     elif key == "B":
         # step wind speed
-        I = np.ones_like(t) * I0
+        intensity = np.ones_like(t) * I0
 
     elif key == "C":
         # step transit and wind speed
@@ -140,41 +126,42 @@ def _get_scenario_enhanced(
 
     elif key == "D":
         # step transit and wind speed and sun
-        dct["hour"] = 12.0
+        dct["datetime_utc"] = np.datetime64("2025-06-21T12:00:00")
 
     elif key == "E":
         # osc transit
-        I[ix] = I0 + 0.5 * (If - I0) * np.sin(ft * t[ix])
+        intensity[ix] = I0 + 0.5 * (If - I0) * np.sin(ft * t[ix])
         u = np.ones_like(t) * u0
 
     elif key == "F":
         # osc wind speed + sun
-        I = np.ones_like(t) * I0
+        intensity = np.ones_like(t) * I0
         u[ix] = u0 + 0.3 * (uf - u0) * np.sin(ft * t[ix])
-        dct["hour"] = 12.0
+        dct["datetime_utc"] = np.datetime64("2025-06-21T12:00:00")
 
     elif key == "G":
         # osc wind angle
-        I = np.ones_like(t) * I0
+        intensity = np.ones_like(t) * I0
         u = np.ones_like(t) * u0
-        wa = np.ones_like(t) * dct["wa"]
-        wa[ix] += 30.0 * np.sin(ft * t[ix])
+        wind_azimuth = np.ones_like(t) * dct["wind_azimuth"]
+        wind_azimuth[ix] += 30.0 * np.sin(ft * t[ix])
 
     elif key == "H":
         # osc transit and wind speed
-        I[ix] = I0 + 0.5 * (If - I0) * np.sin(ft * t[ix])
+        intensity[ix] = I0 + 0.5 * (If - I0) * np.sin(ft * t[ix])
         u[ix] = u0 + 0.3 * (uf - u0) * np.sin(ft * t[ix])
 
     else:
         raise ValueError
 
-    dynamic = {"I": I, "ws": u}
-    if Ta is not None:
-        dynamic["Ta"] = Ta
-    if wa is not None:
-        dynamic["wa"] = wa
+    dynamic = {"transit": intensity, "wind_speed": u}
+    if ambient_temperature is not None:
+        dynamic["ambient_temperature"] = ambient_temperature
+    if wind_azimuth is not None:
+        dynamic["wind_azimuth"] = wind_azimuth
 
     return dct, t, dynamic
+
 
 def _make_scenarios() -> dict:
     """Build the scenario specs (heat equation, model, conductor(s), key(s))."""
@@ -205,6 +192,7 @@ def _make_scenarios() -> dict:
 
     return scenario
 
+
 def _build_inputs(s: dict):
     """Build solver inputs (dc, t, dynamic) for a scenario spec.
 
@@ -223,6 +211,7 @@ def _build_inputs(s: dict):
 
     return dc, t, dynamic, block
 
+
 def _run_scenario(s: dict):
     """Build the solver from a scenario spec, run steady + transient.
 
@@ -230,11 +219,15 @@ def _run_scenario(s: dict):
     exact same setup. Returns ``(t, res_transient)``.
     """
     dc, t, dynamic, block = _build_inputs(s)
-    slv = solver._factory(dc, heateq=s["heat_equation"], model=s["model"])
+    slv = solver._factory(
+        dc,
+        heat_equation=HeatEquationType(s["heat_equation"]),
+        model=ModelType(s["model"]),
+    )
 
     # initial conditions: first time-step of each dynamic input
     idx = (0, slice(None)) if block else 0
-    for name in ("I", "ws", "Ta", "wa"):
+    for name in ("transit", "wind_speed", "ambient_temperature", "wind_azimuth"):
         if name in dynamic:
             slv.args[name] = dynamic[name][idx]
 
@@ -244,15 +237,15 @@ def _run_scenario(s: dict):
     if s["heat_equation"] == "1t":
         res_transient = slv.transient_temperature(
             t,
-            T0=res_steady["t"],
+            T0=res_steady[VariableType.TEMPERATURE.value],
             dynamic=dynamic,
             return_power=False,
         )
     elif s["heat_equation"] == "3t":
         res_transient = slv.transient_temperature(
             t,
-            Ts0=res_steady["t_surf"],
-            Tc0=res_steady["t_core"],
+            surface_temperature_0=res_steady[TemperatureType.SURFACE.value],
+            core_temperature_0=res_steady[TemperatureType.CORE.value],
             dynamic=dynamic,
             return_power=False,
         )
@@ -261,15 +254,17 @@ def _run_scenario(s: dict):
 
     return t, res_transient
 
+
 # yaml field names for the stored reference temperatures, per heat equation
 _TEMP_FIELDS = {
-    "1t": {"temperature": solver.Solver.Names.temp},
+    "1t": {"temperature": VariableType.TEMPERATURE.value},
     "3t": {
-        "surface_temperature": solver.Solver.Names.tsurf,
-        "average_temperature": solver.Solver.Names.tavg,
-        "core_temperature": solver.Solver.Names.tcore,
+        "surface_temperature": TemperatureType.SURFACE.value,
+        "average_temperature": TemperatureType.AVERAGE.value,
+        "core_temperature": TemperatureType.CORE.value,
     },
 }
+
 
 def _gen_scenario_transient():
     """Generate scenarios, compute results and write the yaml non-reg reference."""
@@ -283,7 +278,9 @@ def _gen_scenario_transient():
 
     yaml.dump(scenario, open(_SCENARIO_FILE, "w"))
 
+
 _REFERENCE = yaml.safe_load(open(_SCENARIO_FILE, "r"))
+
 
 @pytest.mark.parametrize("sid", list(_REFERENCE), ids=list(_REFERENCE))
 def test_scenario_transient(sid):

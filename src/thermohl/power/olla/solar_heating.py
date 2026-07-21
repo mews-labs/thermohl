@@ -5,10 +5,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # SPDX-License-Identifier: MPL-2.0
 
-from typing import Optional, Any
+from typing import Any
 
-from thermohl import floatArrayLike, intArrayLike
 from thermohl.power import ieee
+from thermohl import floatArrayLike, datetimeArrayLike
 
 
 class SolarHeating(ieee.SolarHeating):
@@ -16,52 +16,37 @@ class SolarHeating(ieee.SolarHeating):
 
     def __init__(
         self,
-        lat: floatArrayLike,
-        alt: floatArrayLike,
-        azm: floatArrayLike,
-        month: intArrayLike,
-        day: intArrayLike,
-        hour: floatArrayLike,
-        D: floatArrayLike,
-        alpha: floatArrayLike,
-        srad: Optional[floatArrayLike] = float("nan"),
+        latitude: floatArrayLike,
+        altitude: floatArrayLike,
+        cable_azimuth: floatArrayLike,
+        datetime_utc: datetimeArrayLike,
+        outer_diameter: floatArrayLike,
+        solar_absorptivity: floatArrayLike,
+        solar_irradiance: floatArrayLike,
         **kwargs: Any,
     ):
-        r"""Init with args.
+        """Init with args.
+        See ieee.SolarHeating, it is exactly the same with altitude and turbidity set to zero.
+        If more than one input are numpy arrays, they should have the same size.
 
-        See ieee.SolarHeating; it is exactly the same with altitude and
-        turbidity set to zero. If more than one input are numpy arrays, they
-        should have the same size.
-
-        Args:
-            lat (float | numpy.ndarray): Latitude.
-            alt (float | numpy.ndarray): Altitude.
-            azm (float | numpy.ndarray): Azimuth.
-            month (int | numpy.ndarray): Month number (must be between 1 and 12).
-            day (int | numpy.ndarray): Day of the month (must be between 1 and 28, 29, 30 or 31 depending on month).
-            hour (float | numpy.ndarray): Hour of the day (solar, must be between 0 and 23).
-            D (float | numpy.ndarray): external diameter.
-            alpha (float | numpy.ndarray): Solar absorption coefficient.
-            srad (float | numpy.ndarray | None): Optional solar radiation term.
-
-        Returns
-        -------
-        float or np.ndarray
-            Power term value (W.m\ :sup:`-1`\ ).
-
+        :param latitude: Latitude in degrees.
+        :param altitude: Altitude.
+        :param cable_azimuth: Azimuth of the conductor in degrees.
+        :param datetime_utc: Datetime in UTC.
+        :param outer_diameter: external diameter of the conductor.
+        :param solar_absorptivity: Solar absorption coefficient of the conductor.
+        :param solar_irradiance: Optional precomputed solar irradiance term.
         """
-        if "tb" in kwargs.keys():
-            kwargs.pop("tb")
+        if "turbidity" in kwargs.keys():
+            kwargs.pop("turbidity")
         super().__init__(
-            lat=lat,
-            alt=alt,
-            azm=azm,
-            tb=0.0,
-            month=month,
-            day=day,
-            hour=hour,
-            D=D,
-            alpha=alpha,
-            srad=srad,
+            latitude=latitude,
+            altitude=altitude,
+            cable_azimuth=cable_azimuth,
+            turbidity=0.0,
+            datetime_utc=datetime_utc,
+            outer_diameter=outer_diameter,
+            solar_absorptivity=solar_absorptivity,
+            solar_irradiance=solar_irradiance,
             **kwargs,
         )

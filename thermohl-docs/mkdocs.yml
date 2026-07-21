@@ -73,19 +73,17 @@ nav:
               - Radiative Cooling: docstring/Models/OLLA/radiative_cooling.md
               - Solar Heating: docstring/Models/OLLA/solar_heating.md
       - Solvers:
-          - Solver Base: docstring/Solvers/solver_base.md
+          - Solver: docstring/Solvers/solver.md
           - Solver 1 temperature: docstring/Solvers/Solver1T/solver_1_temperature.md
           - Solver 3 temperatures: docstring/Solvers/Solver3T/solver_3_temperature.md
           - Solver 3 temperatures RTE: docstring/Solvers/Solver3TL/solver_3_temperature_rte.md
 
 
-
 plugins:
   - search
-  - bibtex:
-      bib_file: "docs/refs.bib"
   - mkdocs-jupyter:
-      execute: false
+      execute: true
+      allow_errors: false
 
   - markdownextradata # Used to include README.md in getting-started.md file
   - mkdocstrings:

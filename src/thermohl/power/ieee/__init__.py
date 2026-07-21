@@ -16,3 +16,12 @@ from .convective_cooling import ConvectiveCooling
 from .joule_heating import JouleHeating
 from .radiative_cooling import RadiativeCooling
 from .solar_heating import SolarHeating
+
+
+__all__ = [
+    "Air",
+    "ConvectiveCooling",
+    "JouleHeating",
+    "RadiativeCooling",
+    "SolarHeating",
+]

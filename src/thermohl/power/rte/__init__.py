@@ -8,7 +8,16 @@
 """Power terms implementation matching rte's Excel sheet."""
 
 from .air import Air
+from .solar_heating import SolarHeating, compute_solar_irradiance
 from .convective_cooling import ConvectiveCooling
 from .joule_heating import JouleHeating
 from .radiative_cooling import RadiativeCooling
-from .solar_heating import SolarHeating, solar_irradiance
+
+__all__ = [
+    "Air",
+    "SolarHeating",
+    "compute_solar_irradiance",
+    "ConvectiveCooling",
+    "JouleHeating",
+    "RadiativeCooling",
+]
