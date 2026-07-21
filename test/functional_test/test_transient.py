@@ -26,6 +26,7 @@ pytestmark = pytest.mark.skip(
 
 _nprs = 123456
 
+
 def cable_data(s: str) -> dict:
     """Get cable/conductor data from file."""
     f = os.path.join("test", "functional_test", "cable_catalog.csv")
@@ -36,22 +37,8 @@ def cable_data(s: str) -> dict:
         raise ValueError(f"Conductor {s} not found in file {f}.")
 
 
-
-
-
-
-
-
-
 def _get_scenario_default(
-        name:str,
-        I0: float,
-        If: float,
-        u0: float,
-        uf: float,
-        t0: float,
-        tf: float,
-        nt: int
+    name: str, I0: float, If: float, u0: float, uf: float, t0: float, tf: float, nt: int
 ):
     # conductor data
     dp = cable_data(name)
@@ -102,10 +89,8 @@ def _get_scenario_default(
 
     return dct, t, I, Ta, u, wa
 
-def _get_scenario_enhanced(
-        name:str,
-        key
-):
+
+def _get_scenario_enhanced(name: str, key):
     I0 = 222.0
     If = 888.0
     u0 = 1.0
@@ -171,7 +156,6 @@ def _get_scenario_enhanced(
 
 
 def test_transient_shape_1t():
-
     # np.random.seed(_nprs)
     # for c in ["ASTER600", "CROCUS400"]
     # for m in ["rte", "cigre", "ieee", "olla"]
@@ -205,8 +189,8 @@ def test_transient_shape_1t():
     # check
     assert res_transient[solver.Solver.Names.temp].shape == dynamic["I"].shape
 
-def test_transient_shape_1t_block():
 
+def test_transient_shape_1t_block():
     model = "rte"
 
     dc1, t, dynamic1 = _get_scenario_enhanced("ASTER600", key="A")
@@ -221,7 +205,6 @@ def test_transient_shape_1t_block():
     dynamic = {}
     for k in dynamic1.keys():
         dynamic[k] = np.stack((dynamic1[k], dynamic2[k], dynamic3[k], dynamic4[k])).T
-
 
     slv = solver._factory(dc, heateq="1t", model=model)
 
@@ -246,8 +229,8 @@ def test_transient_shape_1t_block():
     # check
     assert res_transient[solver.Solver.Names.temp].shape == dynamic["I"].shape
 
-def test_transient_shape_3t():
 
+def test_transient_shape_3t():
     conductor = "CROCUS400"
     model = "rte"
     key = "D"
@@ -275,11 +258,15 @@ def test_transient_shape_3t():
     )
 
     # check
-    for k in (solver.Solver.Names.tsurf, solver.Solver.Names.tavg, solver.Solver.Names.tcore):
+    for k in (
+        solver.Solver.Names.tsurf,
+        solver.Solver.Names.tavg,
+        solver.Solver.Names.tcore,
+    ):
         assert res_transient[k].shape == dynamic["I"].shape
 
-def test_transient_shape_3t_block():
 
+def test_transient_shape_3t_block():
     # np.random.seed(_nprs)
     # for c in ["ASTER600", "CROCUS400"]
     # for m in ["rte", "cigre", "ieee", "olla"]
@@ -298,7 +285,6 @@ def test_transient_shape_3t_block():
     dynamic = {}
     for k in dynamic1.keys():
         dynamic[k] = np.stack((dynamic1[k], dynamic2[k], dynamic3[k])).T
-
 
     slv = solver._factory(dc, heateq="3t", model=model)
 
@@ -322,6 +308,9 @@ def test_transient_shape_3t_block():
     )
 
     #
-    for k in (solver.Solver.Names.tsurf, solver.Solver.Names.tavg, solver.Solver.Names.tcore):
+    for k in (
+        solver.Solver.Names.tsurf,
+        solver.Solver.Names.tavg,
+        solver.Solver.Names.tcore,
+    ):
         assert res_transient[k].shape == dynamic["I"].shape
-

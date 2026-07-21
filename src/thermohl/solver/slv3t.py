@@ -521,9 +521,7 @@ class Solver3T(Solver_):
             bal = self.balance_3t(
                 surface_temperature[i - 1, :], core_temperature[i - 1, :]
             )
-            tau = self.tau(
-                surface_temperature[i - 1, :], core_temperature[i - 1, :]
-            )
+            tau = self.tau(surface_temperature[i - 1, :], core_temperature[i - 1, :])
             average_temperature[i, :] = average_temperature[i - 1, :] + dt * bal * imc
             morgan = c1 * (self.joule_heating.value(average_temperature[i, :]) - bal)
             tx = tx + dt * (-tx + morgan) / (tau * 0.3)
