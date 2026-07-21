@@ -51,31 +51,52 @@ def _get_scenario_default(
     u[t >= 0.0] = uf
 
     # solver input
+    # dct = dp | dict(
+    #     latitude=46.0,
+    #     longitude=0.0,
+    #     altitude=1.0,
+    #     cable_azimuth=90.0,
+    #     datetime_utc=np.datetime64("2025-06-21T00:00:00"),
+    #     measured_global_radiation=np.nan,
+    #     solar_irradiance=np.nan,
+    #     ambient_temperature=20.0,
+    #     ambient_pressure=1.0e5,
+    #     relative_humidity=0.8,
+    #     precipitation_rate=0.0,
+    #     wind_speed=3.0,
+    #     wind_azimuth=0.0,
+    #     nebulosity=np.nan,
+    #     albedo=0.8,
+    #     turbidity=0.1,
+    #     transit=555.0,
+    #     solar_absorptivity=0.9,
+    #     emissivity=0.8,
+    # )
+
     dct = dp | dict(
         lat=46.0,
+        lon=0.0,
         alt=1.0,
         azm=90.0,
         month=6,
         day=21,
         hour=0.0,
         Ta=20.0,
+        Pa = 1.0e05,
+        rh = 0.8,
+        pr = 0.0,
         ws=3.0,
         wa=0,
+        al = 0.8,
+        tb = 0.1,
+        srad = float("nan"),
         I=555.0,
-        # D=dp["D"],
-        # d=dp["d"],
-        # A=dp["A"],
-        # a=dp["a"],
-        # m=dp["m"],
-        # c=dp["c"],
-        # l=dp["l"],
         alpha=0.9,
         epsilon=0.8,
-        # RDC20=dp["RDC20"],
-        # kl=dp["kl"],
-        # kq=dp["kq"],
-        # km=dp["km"],
-        # ki=dp["ki"],
+        RDCHigh = 3.05e-05,
+        RDCLow = 2.66e-05,
+        THigh = 60.0,
+        TLow = 20.0,
     )
 
     Ta = None
@@ -156,147 +177,147 @@ def _gen_scenario_transient():
 
     scenario =  {
         "01a": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "cigre",
             "conductor": "ASTER600",
             "key": "A",
         },
         "01b": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "cigre",
             "conductor": "CROCUS400",
             "key": "A",
         },
         "01c": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "ieee",
             "conductor": "ASTER600",
             "key": "A",
         },
         "01d": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "ieee",
             "conductor": "CROCUS400",
             "key": "A",
         },
         "01e": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "rte",
             "conductor": "ASTER600",
             "key": "A",
         },
         "01f": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "rte",
             "conductor": "CROCUS400",
             "key": "A",
         },
         "01g": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "olla",
             "conductor": "ASTER600",
             "key": "A",
         },
         "01h": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "olla",
             "conductor": "CROCUS400",
             "key": "A",
         },
 
         "02a": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "cigre",
             "conductor": "ASTER600",
             "key": "A",
         },
         "02b": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "cigre",
             "conductor": "CROCUS400",
             "key": "A",
         },
         "02c": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "ieee",
             "conductor": "ASTER600",
             "key": "A",
         },
         "02d": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "ieee",
             "conductor": "CROCUS400",
             "key": "A",
         },
         "02e": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "rte",
             "conductor": "ASTER600",
             "key": "A",
         },
         "02f": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "rte",
             "conductor": "CROCUS400",
             "key": "A",
         },
         "02g": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "olla",
             "conductor": "ASTER600",
             "key": "A",
         },
         "02h": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "olla",
             "conductor": "CROCUS400",
             "key": "A",
         },
 
         "03a": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "cigre",
             "conductor": ["ASTER600", "CROCUS400", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E", "F"],
         },
         "03b": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "ieee",
             "conductor": ["ASTER600", "CROCUS400", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E", "F"],
         },
         "03c": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "rte",
             "conductor": ["ASTER600", "CROCUS400", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E", "F"],
         },
         "03d": {
-            "heateq": "1t",
+            "heat_equation": "1t",
             "model": "olla",
             "conductor": ["ASTER600", "CROCUS400", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E", "F"],
         },
         "04a": {
-            "heateq": "3t",
+            "heat_equation": "3t",
             "model": "cigre",
             "conductor": ["ASTER600", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E"],
         },
         "04b": {
-            "heateq": "3t",
+            "heat_equation": "3t",
             "model": "ieee",
             "conductor": ["ASTER600", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E"],
         },
         "04c": {
-            "heateq": "3t",
+            "heat_equation": "3t",
             "model": "rte",
             "conductor": ["ASTER600", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E"],
         },
         "04d": {
-            "heateq": "3t",
+            "heat_equation": "3t",
             "model": "olla",
             "conductor": ["ASTER600", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E"],
@@ -320,7 +341,7 @@ def _gen_scenario_transient():
         else:
             dc, t, dynamic = _get_scenario_enhanced(s["conductor"], key=s["key"])
 
-        slv = solver._factory(dc, heateq=s["heateq"], model=s["model"])
+        slv = solver._factory(dc, heateq=s["heat_equation"], model=s["model"])
 
         if block:
             slv.args["I"] = dynamic["I"][0, :]
@@ -341,7 +362,7 @@ def _gen_scenario_transient():
         res_steady = slv.steady_temperature()
         s["time"] = t[::100].tolist()
 
-        if s["heateq"] == "1t":
+        if s["heat_equation"] == "1t":
             res_transient = slv.transient_temperature(
                 t,
                 T0=res_steady["t"],
@@ -350,7 +371,7 @@ def _gen_scenario_transient():
             )
             s[solver.Solver.Names.temp] = res_transient[solver.Solver.Names.temp][::100].tolist()
             s["temperature"] = s.pop("t")
-        elif s["heateq"] == "3t":
+        elif s["heat_equation"] == "3t":
             res_transient = slv.transient_temperature(
                 t,
                 Ts0=res_steady["t_surf"],
@@ -365,7 +386,6 @@ def _gen_scenario_transient():
             s["core_temperature"] = s.pop("t_core")
         else:
             raise ValueError
-        s["heat_equation"] = s.pop("heateq")
 
     yaml.dump(scenario, open(os.path.join("test", "functional_test", "scenario_transient.yaml"), "w"))
 
@@ -383,10 +403,9 @@ def test_scenario_transient():
 
     for i, s in scenario.items():
 
-        s["heateq"] = s.pop("heat_equation")
-        if s["heateq"] == "1t":
+        if s["heat_equation"] == "1t":
             s["t"] = s.pop("temperature")
-        elif s["heateq"] == "3t":
+        elif s["heat_equation"] == "3t":
             s["t_surf"] = s.pop("surface_temperature")
             s["t_avg"] = s.pop("average_temperature")
             s["t_core"] = s.pop("core_temperature")
@@ -406,7 +425,7 @@ def test_scenario_transient():
         else:
             dc, t, dynamic = _get_scenario_enhanced(s["conductor"], key=s["key"])
 
-        slv = solver._factory(dc, heateq=s["heateq"], model=s["model"])
+        slv = solver._factory(dc, heateq=s["heat_equation"], model=s["model"])
 
         if block:
             slv.args["I"] = dynamic["I"][0, :]
@@ -427,7 +446,7 @@ def test_scenario_transient():
         res_steady = slv.steady_temperature()
         s["time"] = t[::100].tolist()
 
-        if s["heateq"] == "1t":
+        if s["heat_equation"] == "1t":
             res_transient = slv.transient_temperature(
                 t,
                 T0=res_steady["t"],
@@ -435,7 +454,7 @@ def test_scenario_transient():
                 return_power=False,
             )
             assert np.allclose(res_transient[solver.Solver.Names.temp][::100], s[solver.Solver.Names.temp], atol=atol)
-        elif s["heateq"] == "3t":
+        elif s["heat_equation"] == "3t":
             res_transient = slv.transient_temperature(
                 t,
                 Ts0=res_steady["t_surf"],
