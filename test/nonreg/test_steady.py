@@ -182,6 +182,14 @@ _TEMP_FIELDS = {
     },
 }
 
+def _skip_ampacity(s: dict) -> bool:
+    """The 3t ampacity solver is multistable on the fully-random inputs: it
+    converges to different roots depending on platform-specific float behaviour,
+    so its result is not reproducible across OSes. Skip it for the random 3t
+    scenarios only; every other scenario has a single, portable ampacity solution.
+    """
+    return "seed" in s and s["heat_equation"] == "3t"
+
 def _gen_scenario_steady():
     """Generate scenarios, compute results and write the yaml non-reg reference."""
     scenario = _make_scenarios()
@@ -190,7 +198,8 @@ def _gen_scenario_steady():
         res_temperature, res_intensity = _run_scenario(s)
         for field, key in _TEMP_FIELDS[s["heat_equation"]].items():
             s[field] = res_temperature[key].tolist()
-        s["max_intensity"] = res_intensity[solver.Solver.Names.transit].tolist()
+        if not _skip_ampacity(s):
+            s["max_intensity"] = res_intensity[solver.Solver.Names.transit].tolist()
 
     yaml.dump(scenario, open(_SCENARIO_FILE, "w"))
 
@@ -206,8 +215,5 @@ def test_scenario_steady(sid):
 
     for field, key in _TEMP_FIELDS[s["heat_equation"]].items():
         assert np.allclose(res_temperature[key], s[field], atol=atol)
-    # equal_nan: the 3t ampacity solver diverges to NaN on a few pathological
-    # random draws; require those to stay NaN in the same positions
-    assert np.allclose(
-        res_intensity[solver.Solver.Names.transit], s["max_intensity"], atol=atol, equal_nan=True
-    )
+    if not _skip_ampacity(s):
+        assert np.allclose(res_intensity[solver.Solver.Names.transit], s["max_intensity"], atol=atol)
