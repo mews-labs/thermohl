@@ -155,18 +155,104 @@ def _gen_scenario_transient():
     """Generate a list of scenario, compute results and write yaml file for non-reg."""
 
     scenario =  {
-        "001": {
+        "01a": {
+            "heateq": "1t",
+            "model": "cigre",
+            "conductor": "ASTER600",
+            "key": "A",
+        },
+        "01b": {
+            "heateq": "1t",
+            "model": "cigre",
+            "conductor": "CROCUS400",
+            "key": "A",
+        },
+        "01c": {
+            "heateq": "1t",
+            "model": "ieee",
+            "conductor": "ASTER600",
+            "key": "A",
+        },
+        "01d": {
+            "heateq": "1t",
+            "model": "ieee",
+            "conductor": "CROCUS400",
+            "key": "A",
+        },
+        "01e": {
             "heateq": "1t",
             "model": "rte",
             "conductor": "ASTER600",
             "key": "A",
         },
-        "002": {
-            "heateq": "3t",
+        "01f": {
+            "heateq": "1t",
             "model": "rte",
             "conductor": "CROCUS400",
-            "key": "D",
+            "key": "A",
         },
+        "01g": {
+            "heateq": "1t",
+            "model": "olla",
+            "conductor": "ASTER600",
+            "key": "A",
+        },
+        "01h": {
+            "heateq": "1t",
+            "model": "olla",
+            "conductor": "CROCUS400",
+            "key": "A",
+        },
+
+        "02a": {
+            "heateq": "1t",
+            "model": "cigre",
+            "conductor": "ASTER600",
+            "key": "A",
+        },
+        "02b": {
+            "heateq": "1t",
+            "model": "cigre",
+            "conductor": "CROCUS400",
+            "key": "A",
+        },
+        "02c": {
+            "heateq": "1t",
+            "model": "ieee",
+            "conductor": "ASTER600",
+            "key": "A",
+        },
+        "02d": {
+            "heateq": "1t",
+            "model": "ieee",
+            "conductor": "CROCUS400",
+            "key": "A",
+        },
+        "02e": {
+            "heateq": "1t",
+            "model": "rte",
+            "conductor": "ASTER600",
+            "key": "A",
+        },
+        "02f": {
+            "heateq": "1t",
+            "model": "rte",
+            "conductor": "CROCUS400",
+            "key": "A",
+        },
+        "02g": {
+            "heateq": "1t",
+            "model": "olla",
+            "conductor": "ASTER600",
+            "key": "A",
+        },
+        "02h": {
+            "heateq": "1t",
+            "model": "olla",
+            "conductor": "CROCUS400",
+            "key": "A",
+        },
+
         "03a": {
             "heateq": "1t",
             "model": "cigre",
@@ -193,19 +279,19 @@ def _gen_scenario_transient():
         },
         "04a": {
             "heateq": "3t",
-            "model": "olla",
+            "model": "cigre",
             "conductor": ["ASTER600", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E"],
         },
         "04b": {
             "heateq": "3t",
-            "model": "olla",
+            "model": "ieee",
             "conductor": ["ASTER600", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E"],
         },
         "04c": {
             "heateq": "3t",
-            "model": "olla",
+            "model": "rte",
             "conductor": ["ASTER600", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E"],
         },
