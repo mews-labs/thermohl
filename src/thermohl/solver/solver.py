@@ -255,9 +255,7 @@ def _set_dates(
     return datetime_with_offset
 
 
-def _transient_process_dynamic(
-        args, time: np.ndarray, n: int, dynamic: dict = None
-):
+def _transient_process_dynamic(args, time: np.ndarray, n: int, dynamic: dict = None):
     """Code factorization for transient temperature computations.
 
     This methods prepare a dict with dynamic values to use in the

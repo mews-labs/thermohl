@@ -433,10 +433,10 @@ class Solver3T(Solver_):
                 dr[power.value] = np.zeros_like(surface_temperature)
 
             power_map = {
-                PowerType.SOLAR:self.solar_heating.value,
-                PowerType.CONVECTION:self.convective_cooling.value,
-                PowerType.RADIATION:self.radiative_cooling.value,
-                PowerType.RAIN:self.precipitation_cooling.value,
+                PowerType.SOLAR: self.solar_heating.value,
+                PowerType.CONVECTION: self.convective_cooling.value,
+                PowerType.RADIATION: self.radiative_cooling.value,
+                PowerType.RAIN: self.precipitation_cooling.value,
             }
 
             for i in range(len(time)):

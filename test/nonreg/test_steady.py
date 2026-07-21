@@ -181,7 +181,11 @@ def _run_scenario(s: dict):
     Shared by the reference generator and the non-reg test so both use the
     exact same setup. Returns ``(res_temperature, res_intensity)``.
     """
-    dc = _get_scenario_random(s["seed"]) if "seed" in s else _get_scenario(s["conductor"])
+    dc = (
+        _get_scenario_random(s["seed"])
+        if "seed" in s
+        else _get_scenario(s["conductor"])
+    )
     slv = solver._factory(
         dc,
         heat_equation=HeatEquationType(s["heat_equation"]),
@@ -202,7 +206,9 @@ def _run_scenario(s: dict):
     else:
         res_temperature = slv.steady_temperature(return_power=False)
 
-    res_intensity = slv.steady_intensity(max_conductor_temperature=_TMAX, return_power=False)
+    res_intensity = slv.steady_intensity(
+        max_conductor_temperature=_TMAX, return_power=False
+    )
 
     return res_temperature, res_intensity
 

@@ -131,11 +131,11 @@ class Solver1T(Solver_):
                 result[power.value] = np.zeros_like(conductor_temperature)
 
             power_map = {
-                PowerType.JOULE:self.joule_heating.value,
-                PowerType.SOLAR:self.solar_heating.value,
-                PowerType.CONVECTION:self.convective_cooling.value,
-                PowerType.RADIATION:self.radiative_cooling.value,
-                PowerType.RAIN:self.precipitation_cooling.value,
+                PowerType.JOULE: self.joule_heating.value,
+                PowerType.SOLAR: self.solar_heating.value,
+                PowerType.CONVECTION: self.convective_cooling.value,
+                PowerType.RADIATION: self.radiative_cooling.value,
+                PowerType.RAIN: self.precipitation_cooling.value,
             }
 
             for i in range(N):

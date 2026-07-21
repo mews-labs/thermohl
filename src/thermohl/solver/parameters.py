@@ -161,5 +161,3 @@ class Parameters:
                     f"Key {k} has a {s} shape, only float and 1-dim arrays are accepted"
                 )
         return shape_
-
-
