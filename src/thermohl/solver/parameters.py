@@ -5,7 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # SPDX-License-Identifier: MPL-2.0
 
-from typing import Optional, Any, KeysView, Iterable, Tuple, List, Union
+from typing import Optional, Any, KeysView, Iterable, Tuple
 import numpy as np
 
 

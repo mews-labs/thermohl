@@ -52,9 +52,9 @@ def _get_scenario_default(
     t = np.linspace(t0, tf, nt)
 
     # transit
-    I = np.zeros_like(t)
-    I[t < 0.0] = I0
-    I[t >= 0.0] = If
+    intensity = np.zeros_like(t)
+    intensity[t < 0.0] = I0
+    intensity[t >= 0.0] = If
 
     # wind speed
     u = np.zeros_like(t)
@@ -92,7 +92,7 @@ def _get_scenario_default(
     ambient_temperature = None
     wind_azimuth = None
 
-    return dct, t, I, ambient_temperature, u, wind_azimuth
+    return dct, t, intensity, ambient_temperature, u, wind_azimuth
 
 
 def _get_scenario_enhanced(name: str, key):
@@ -105,7 +105,7 @@ def _get_scenario_enhanced(name: str, key):
     tf = 2700.0
     nt = 301
 
-    dct, t, I, ambient_temperature, u, wind_azimuth = _get_scenario_default(
+    dct, t, intensity, ambient_temperature, u, wind_azimuth = _get_scenario_default(
         name, I0, If, u0, uf, t0, tf, nt
     )
 
@@ -118,7 +118,7 @@ def _get_scenario_enhanced(name: str, key):
 
     elif key == "B":
         # step wind speed
-        I = np.ones_like(t) * I0
+        intensity = np.ones_like(t) * I0
 
     elif key == "C":
         # step transit and wind speed
@@ -130,31 +130,31 @@ def _get_scenario_enhanced(name: str, key):
 
     elif key == "E":
         # osc transit
-        I[ix] = I0 + 0.5 * (If - I0) * np.sin(ft * t[ix])
+        intensity[ix] = I0 + 0.5 * (If - I0) * np.sin(ft * t[ix])
         u = np.ones_like(t) * u0
 
     elif key == "F":
         # osc wind speed + sun
-        I = np.ones_like(t) * I0
+        intensity = np.ones_like(t) * I0
         u[ix] = u0 + 0.3 * (uf - u0) * np.sin(ft * t[ix])
         dct["datetime_utc"] = np.datetime64("2025-06-21T12:00:00")
 
     elif key == "G":
         # osc wind angle
-        I = np.ones_like(t) * I0
+        intensity = np.ones_like(t) * I0
         u = np.ones_like(t) * u0
         wind_azimuth = np.ones_like(t) * dct["wind_azimuth"]
         wind_azimuth[ix] += 30.0 * np.sin(ft * t[ix])
 
     elif key == "H":
         # osc transit and wind speed
-        I[ix] = I0 + 0.5 * (If - I0) * np.sin(ft * t[ix])
+        intensity[ix] = I0 + 0.5 * (If - I0) * np.sin(ft * t[ix])
         u[ix] = u0 + 0.3 * (uf - u0) * np.sin(ft * t[ix])
 
     else:
         raise ValueError
 
-    dynamic = {"transit": I, "wind_speed": u}
+    dynamic = {"transit": intensity, "wind_speed": u}
     if ambient_temperature is not None:
         dynamic["ambient_temperature"] = ambient_temperature
     if wind_azimuth is not None:

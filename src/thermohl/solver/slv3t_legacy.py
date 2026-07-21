@@ -12,9 +12,7 @@ import numpy as np
 from thermohl import floatArrayLike, floatArray, intArray
 from thermohl.power import PowerTerm
 from thermohl.solver.entities import TargetType, CableLocationListLike
-from thermohl.solver import solver
 from thermohl.solver.slv3t import Solver3T
-from thermohl.solver.solver import _transient_process_dynamic
 from thermohl.solver.entities import TemperatureType
 
 
