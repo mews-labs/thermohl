@@ -12,7 +12,9 @@ import numpy as np
 from thermohl import floatArrayLike, floatArray, intArray
 from thermohl.power import PowerTerm
 from thermohl.solver.entities import TargetType, CableLocationListLike
+from thermohl.solver import solver
 from thermohl.solver.slv3t import Solver3T
+from thermohl.solver.solver import _transient_process_dynamic
 from thermohl.solver.entities import TemperatureType
 
 
@@ -142,9 +144,10 @@ class Solver3TL(Solver3T):
 
     def transient_temperature_legacy(
         self,
-        offset: floatArray = np.array([]),
+        time: floatArray = np.array([]),
         surface_temperature_0: Optional[floatArrayLike] = None,
         core_temperature_0: Optional[floatArrayLike] = None,
+        dynamic: dict = None,
         time_constant: float = 600.0,
         return_power: bool = False,
     ) -> Dict[str, Any]:
@@ -152,7 +155,7 @@ class Solver3TL(Solver3T):
         Compute transient-state temperature with legacy method.
 
         Args:
-            offset (numpy.ndarray): A 1D array with times (in seconds) when the temperature needs to be
+            time (numpy.ndarray): A 1D array with times (in seconds) when the temperature needs to be
                 computed. The array must contain increasing values (undefined behaviour otherwise).
             surface_temperature_0 (float): Initial surface temperature. If set to None, the ambient temperature from
                 internal dict will be used. The default is None.
@@ -167,11 +170,9 @@ class Solver3TL(Solver3T):
 
         """
 
-        # get sizes (n for input dict entries, N for offsets)
-        n = self.args.get_number_of_computations()
-        N = len(offset)
-        if N < 2:
-            raise ValueError()
+        # get sizes (n for input dict entries, N for times)
+        n = self._min_shape()[0]
+        N = len(time)
 
         # get initial temperature
         surface_temperature_0 = (
@@ -204,11 +205,11 @@ class Solver3TL(Solver3T):
         )
 
         # compute transient temperatures for each row after the first.
-        for i in range(1, len(offset)):
+        for i in range(1, N):
             balance = self.balance_3t(
                 surface_temperature[i - 1, :], core_temperature[i - 1, :]
             )
-            time_difference = offset[i] - offset[i - 1]
+            time_difference = time[i] - time[i - 1]
             average_temperature[i, :] = (
                 average_temperature[i - 1, :] + time_difference * imc * balance
             )
@@ -228,15 +229,16 @@ class Solver3TL(Solver3T):
             )
 
         result = self._transient_temperature_results(
-            offset,
+            time,
             surface_temperature,
             average_temperature,
             core_temperature,
             return_power,
             n,
+            None,
         )
 
-        result = self._add_input_data_to_result(result)
+        # result = self._add_input_data_to_result(result)
 
         return result
 

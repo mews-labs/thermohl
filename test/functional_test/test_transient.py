@@ -7,24 +7,18 @@
 # SPDX-License-Identifier: MPL-2.0
 
 import os.path
+import yaml
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from thermohl import solver
-
-# These tests were written against the pre-refactor API (solver._factory(heateq=...),
-# short arg names, and a transient_temperature(dynamic=...) parameter). The upstream
-# refactor merged into this branch reads time-varying inputs from solver.args instead,
-# which cannot express dynamic transient inputs for a single conductor (the time axis
-# and the computation axis are both inferred from array length). Skipped until the
-# tests are ported or dynamic transient support is restored.
-pytestmark = pytest.mark.skip(
-    reason="dynamic transient inputs not supported after upstream API refactor; needs porting"
+from thermohl.solver.entities import (
+    HeatEquationType,
+    ModelType,
+    TemperatureType,
+    VariableType,
 )
-
-_nprs = 123456
 
 
 def cable_data(s: str) -> dict:
@@ -58,30 +52,16 @@ def _get_scenario_default(
 
     # solver input
     dct = dp | dict(
-        lat=46.0,
-        alt=1.0,
-        azm=90.0,
-        month=6,
-        day=21,
-        hour=0.0,
-        Ta=20.0,
-        ws=3.0,
-        wa=0,
-        I=555.0,
-        # D=dp["D"],
-        # d=dp["d"],
-        # A=dp["A"],
-        # a=dp["a"],
-        # m=dp["m"],
-        # c=dp["c"],
-        # l=dp["l"],
-        alpha=0.9,
-        epsilon=0.8,
-        # RDC20=dp["RDC20"],
-        # kl=dp["kl"],
-        # kq=dp["kq"],
-        # km=dp["km"],
-        # ki=dp["ki"],
+        latitude=46.0,
+        altitude=1.0,
+        cable_azimuth=90.0,
+        datetime_utc=np.datetime64("2024-06-21T00:00:00"),
+        ambient_temperature=20.0,
+        wind_speed=3.0,
+        wind_azimuth=0,
+        transit=555.0,
+        solar_absorptivity=0.9,
+        emissivity=0.8,
     )
 
     Ta = None
@@ -91,6 +71,7 @@ def _get_scenario_default(
 
 
 def _get_scenario_enhanced(name: str, key):
+    """Generate transient scenarios with key in ['A'-'H']."""
     I0 = 222.0
     If = 888.0
     u0 = 1.0
@@ -135,7 +116,7 @@ def _get_scenario_enhanced(name: str, key):
         # osc wind angle
         I = np.ones_like(t) * I0
         u = np.ones_like(t) * u0
-        wa = np.ones_like(t) * dct["wa"]
+        wa = np.ones_like(t) * dct["wind_angle"]
         wa[ix] += 30.0 * np.sin(ft * t[ix])
 
     elif key == "H":
@@ -146,171 +127,237 @@ def _get_scenario_enhanced(name: str, key):
     else:
         raise ValueError
 
-    dynamic = {"I": I, "ws": u}
+    dynamic = {"transit": I, "wind_speed": u}
     if Ta is not None:
-        dynamic["Ta"] = Ta
+        dynamic["ambient_temperature"] = Ta
     if wa is not None:
-        dynamic["wa"] = wa
+        dynamic["wind_angle"] = wa
 
     return dct, t, dynamic
 
 
-def test_transient_shape_1t():
+def _gen_scenario_transient():
+    """Generate a list of scenario, compute results and write yaml file for non-reg."""
+
+    scenario = {
+        "001": {
+            "heat_equation": "1t",
+            "model": "rte",
+            "conductor": "ASTER600",
+            "key": "A",
+        },
+        "002": {
+            "heat_equation": "3t",
+            "model": "rte",
+            "conductor": "CROCUS400",
+            "key": "D",
+        },
+        "03a": {
+            "heat_equation": "1t",
+            "model": "cigre",
+            "conductor": ["ASTER600", "CROCUS400", "ASTER600", "CROCUS400"],
+            "key": ["A", "B", "E", "F"],
+        },
+        "03b": {
+            "heat_equation": "1t",
+            "model": "ieee",
+            "conductor": ["ASTER600", "CROCUS400", "ASTER600", "CROCUS400"],
+            "key": ["A", "B", "E", "F"],
+        },
+        "03c": {
+            "heat_equation": "1t",
+            "model": "rte",
+            "conductor": ["ASTER600", "CROCUS400", "ASTER600", "CROCUS400"],
+            "key": ["A", "B", "E", "F"],
+        },
+        "03d": {
+            "heat_equation": "1t",
+            "model": "olla",
+            "conductor": ["ASTER600", "CROCUS400", "ASTER600", "CROCUS400"],
+            "key": ["A", "B", "E", "F"],
+        },
+        "04a": {
+            "heat_equation": "3t",
+            "model": "olla",
+            "conductor": ["ASTER600", "ASTER600", "CROCUS400"],
+            "key": ["A", "B", "E"],
+        },
+        "04b": {
+            "heat_equation": "3t",
+            "model": "olla",
+            "conductor": ["ASTER600", "ASTER600", "CROCUS400"],
+            "key": ["A", "B", "E"],
+        },
+        "04c": {
+            "heat_equation": "3t",
+            "model": "olla",
+            "conductor": ["ASTER600", "ASTER600", "CROCUS400"],
+            "key": ["A", "B", "E"],
+        },
+        "04d": {
+            "heat_equation": "3t",
+            "model": "olla",
+            "conductor": ["ASTER600", "ASTER600", "CROCUS400"],
+            "key": ["A", "B", "E"],
+        },
+    }
+
+    for i, s in scenario.items():
+        nblocks = len(s["conductor"]) if isinstance(s["conductor"], list) else 1
+        block = nblocks > 1
+
+        if block:
+            args = [
+                _get_scenario_enhanced(s["conductor"][j], s["key"][j])
+                for j in range(nblocks)
+            ]
+            dc = {}
+            for k in args[0][0].keys():
+                dc[k] = np.array([args[j][0][k] for j in range(nblocks)])
+            t = args[0][1]
+            dynamic = {}
+            for k in args[0][2].keys():
+                dynamic[k] = np.stack([args[j][2][k] for j in range(nblocks)]).T
+        else:
+            dc, t, dynamic = _get_scenario_enhanced(s["conductor"], key=s["key"])
+
+        slv = solver._factory(dc, heat_equation=HeatEquationType(s["heat_equation"]), model=ModelType(s["model"]))
+
+        if block:
+            slv.args["transit"] = dynamic["transit"][0, :]
+            slv.args["wind_speed"] = dynamic["wind_speed"][0, :]
+            if "ambient_temperature" in dynamic:
+                slv.args["ambient_temperature"] = dynamic["ambient_temperature"][0, :]
+            if "wind_angle" in dynamic:
+                slv.args["wind_angle"] = dynamic["wind_angle"][0, :]
+        else:
+            slv.args["transit"] = dynamic["transit"][0]
+            slv.args["wind_speed"] = dynamic["wind_speed"][0]
+            if "ambient_temperature" in dynamic:
+                slv.args["ambient_temperature"] = dynamic["ambient_temperature"][0]
+            if "wind_angle" in dynamic:
+                slv.args["wind_angle"] = dynamic["wind_angle"][0]
+        slv.update()
+        res_steady = slv.steady_temperature(return_power=False)
+
+        s["time"] = t[::100].tolist()
+
+        if s["heat_equation"] == "1t":
+            res_transient = slv.transient_temperature(
+                t,
+                T0=res_steady[VariableType.TEMPERATURE.value],
+                dynamic=dynamic,
+                return_power=False,
+            )
+            s[VariableType.TEMPERATURE.value] = res_transient[VariableType.TEMPERATURE.value][
+                ::100
+            ].tolist()
+        elif s["heat_equation"] == "3t":
+            res_transient = slv.transient_temperature(
+                t,
+                surface_temperature_0=res_steady[TemperatureType.SURFACE.value],
+                core_temperature_0=res_steady[TemperatureType.CORE.value],
+                dynamic=dynamic,
+                return_power=False,
+            )
+            for k in (
+                    TemperatureType.SURFACE.value,
+                    TemperatureType.AVERAGE.value,
+                    TemperatureType.CORE.value,
+            ):
+                s[k] = res_transient[k][::100].tolist()
+        else:
+            raise ValueError
+
+    yaml.dump(
+        scenario,
+        open(os.path.join("test", "functional_test", "scenario_transient.yaml"), "w"),
+    )
+
+
+def test_scenario_transient():
+    """Test for non-reg in transcient computations."""
+
     # np.random.seed(_nprs)
     # for c in ["ASTER600", "CROCUS400"]
     # for m in ["rte", "cigre", "ieee", "olla"]
     # for k in ["A", "B", "C", "D", "E", "F", "G", "H", "J"]
 
-    conductor = "ASTER600"
-    model = "rte"
-    key = "A"
+    atol = 1.0e-06
 
-    dc, t, dynamic = _get_scenario_enhanced(conductor, key=key)
-    slv = solver._factory(dc, heateq="1t", model=model)
-
-    # estimate static equilibrium at t=0
-    slv.args["I"] = dynamic["I"][0]
-    slv.args["ws"] = dynamic["ws"][0]
-    if "Ta" in dynamic:
-        slv.args["Ta"] = dynamic["Ta"][0]
-    if "wa" in dynamic:
-        slv.args["wa"] = dynamic["wa"][0]
-    slv.update()
-    res_steady = slv.steady_temperature()
-
-    # solve transient equilibrium
-    res_transient = slv.transient_temperature(
-        t,
-        T0=res_steady["t"][0],
-        dynamic=dynamic,
-        return_power=False,
+    scenario = yaml.safe_load(
+        open(os.path.join("test", "functional_test", "scenario_transient.yaml"), "r")
     )
 
-    # check
-    assert res_transient[solver.Solver.Names.temp].shape == dynamic["I"].shape
+    for i, s in scenario.items():
+        nblocks = len(s["conductor"]) if isinstance(s["conductor"], list) else 1
+        block = nblocks > 1
+
+        if block:
+            args = [
+                _get_scenario_enhanced(s["conductor"][j], s["key"][j])
+                for j in range(nblocks)
+            ]
+            dc = {}
+            for k in args[0][0].keys():
+                dc[k] = np.array([args[j][0][k] for j in range(nblocks)])
+            t = args[0][1]
+            dynamic = {}
+            for k in args[0][2].keys():
+                dynamic[k] = np.stack([args[j][2][k] for j in range(nblocks)]).T
+        else:
+            dc, t, dynamic = _get_scenario_enhanced(s["conductor"], key=s["key"])
+
+        slv = solver._factory(dc, heat_equation=HeatEquationType(s["heat_equation"]), model=ModelType(s["model"]))
+
+        if block:
+            slv.args["transit"] = dynamic["transit"][0, :]
+            slv.args["wind_speed"] = dynamic["wind_speed"][0, :]
+            if "ambient_temperature" in dynamic:
+                slv.args["ambient_temperature"] = dynamic["ambient_temperature"][0, :]
+            if "wind_angle" in dynamic:
+                slv.args["wind_angle"] = dynamic["wind_angle"][0, :]
+        else:
+            slv.args["transit"] = dynamic["transit"][0]
+            slv.args["wind_speed"] = dynamic["wind_speed"][0]
+            if "ambient_temperature" in dynamic:
+                slv.args["ambient_temperature"] = dynamic["ambient_temperature"][0]
+            if "wind_angle" in dynamic:
+                slv.args["wind_angle"] = dynamic["wind_angle"][0]
+        slv.update()
+        res_steady = slv.steady_temperature(return_power=False)
+
+        s["time"] = t[::100].tolist()
+
+        if s["heat_equation"] == "1t":
+            res_transient = slv.transient_temperature(
+                t,
+                T0=res_steady[VariableType.TEMPERATURE.value],
+                dynamic=dynamic,
+                return_power=False,
+            )
+            assert np.allclose(
+                res_transient[VariableType.TEMPERATURE.value][::100],
+                s[VariableType.TEMPERATURE.value],
+                atol=atol,
+            )
+        elif s["heat_equation"] == "3t":
+            res_transient = slv.transient_temperature(
+                t,
+                surface_temperature_0=res_steady[TemperatureType.SURFACE.value],
+                core_temperature_0=res_steady[TemperatureType.CORE.value],
+                dynamic=dynamic,
+                return_power=False,
+            )
+            for k in (
+                TemperatureType.SURFACE.value,
+                TemperatureType.AVERAGE.value,
+                TemperatureType.CORE.value,
+            ):
+                assert np.allclose(res_transient[k][::100], s[k], atol=atol)
+        else:
+            raise ValueError
 
 
-def test_transient_shape_1t_block():
-    model = "rte"
-
-    dc1, t, dynamic1 = _get_scenario_enhanced("ASTER600", key="A")
-    dc2, t, dynamic2 = _get_scenario_enhanced("ASTER600", key="B")
-    dc3, t, dynamic3 = _get_scenario_enhanced("ASTER600", key="E")
-    dc4, t, dynamic4 = _get_scenario_enhanced("CROCUS400", key="F")
-
-    dc = {}
-    for k in dc1.keys():
-        dc[k] = [dc1[k], dc2[k], dc3[k], dc4[k]]
-
-    dynamic = {}
-    for k in dynamic1.keys():
-        dynamic[k] = np.stack((dynamic1[k], dynamic2[k], dynamic3[k], dynamic4[k])).T
-
-    slv = solver._factory(dc, heateq="1t", model=model)
-
-    # estimate static equilibrium at t=0
-    slv.args["I"] = dynamic["I"][0, :]
-    slv.args["ws"] = dynamic["ws"][0, :]
-    if "Ta" in dynamic:
-        slv.args["Ta"] = dynamic["Ta"][0, :]
-    if "wa" in dynamic:
-        slv.args["wa"] = dynamic["wa"][0, :]
-    slv.update()
-    res_steady = slv.steady_temperature()
-
-    # solve transient equilibrium
-    res_transient = slv.transient_temperature(
-        t,
-        T0=res_steady["t"][0],
-        dynamic=dynamic,
-        return_power=False,
-    )
-
-    # check
-    assert res_transient[solver.Solver.Names.temp].shape == dynamic["I"].shape
 
 
-def test_transient_shape_3t():
-    conductor = "CROCUS400"
-    model = "rte"
-    key = "D"
-
-    dc, t, dynamic = _get_scenario_enhanced(conductor, key=key)
-    slv = solver._factory(dc, heateq="3t", model=model)
-
-    # estimate static equilibrium at t=0
-    slv.args["I"] = dynamic["I"][0]
-    slv.args["ws"] = dynamic["ws"][0]
-    if "Ta" in dynamic:
-        slv.args["Ta"] = dynamic["Ta"][0]
-    if "wa" in dynamic:
-        slv.args["wa"] = dynamic["wa"][0]
-    slv.update()
-    res_steady = slv.steady_temperature()
-
-    # solve transient equilibrium
-    res_transient = slv.transient_temperature(
-        t,
-        Ts0=res_steady["t_surf"][0],
-        Tc0=res_steady["t_core"][0],
-        dynamic=dynamic,
-        return_power=False,
-    )
-
-    # check
-    for k in (
-        solver.Solver.Names.tsurf,
-        solver.Solver.Names.tavg,
-        solver.Solver.Names.tcore,
-    ):
-        assert res_transient[k].shape == dynamic["I"].shape
-
-
-def test_transient_shape_3t_block():
-    # np.random.seed(_nprs)
-    # for c in ["ASTER600", "CROCUS400"]
-    # for m in ["rte", "cigre", "ieee", "olla"]
-    # for k in ["A", "B", "C", "D", "E", "F", "G", "H", "J"]
-
-    model = "rte"
-
-    dc1, t, dynamic1 = _get_scenario_enhanced("ASTER600", key="A")
-    dc2, t, dynamic2 = _get_scenario_enhanced("ASTER600", key="B")
-    dc3, t, dynamic3 = _get_scenario_enhanced("CROCUS400", key="E")
-
-    dc = {}
-    for k in dc1.keys():
-        dc[k] = [dc1[k], dc2[k], dc3[k]]
-
-    dynamic = {}
-    for k in dynamic1.keys():
-        dynamic[k] = np.stack((dynamic1[k], dynamic2[k], dynamic3[k])).T
-
-    slv = solver._factory(dc, heateq="3t", model=model)
-
-    # estimate static equilibriium at t=0
-    slv.args["I"] = dynamic["I"][0, :]
-    slv.args["ws"] = dynamic["ws"][0, :]
-    if "Ta" in dynamic:
-        slv.args["Ta"] = dynamic["Ta"][0, :]
-    if "wa" in dynamic:
-        slv.args["wa"] = dynamic["wa"][0, :]
-    slv.update()
-    res_steady = slv.steady_temperature()
-
-    # solve transient equilibrium
-    res_transient = slv.transient_temperature(
-        t,
-        Ts0=res_steady["t_surf"][0],
-        Tc0=res_steady["t_core"][0],
-        dynamic=dynamic,
-        return_power=False,
-    )
-
-    #
-    for k in (
-        solver.Solver.Names.tsurf,
-        solver.Solver.Names.tavg,
-        solver.Solver.Names.tcore,
-    ):
-        assert res_transient[k].shape == dynamic["I"].shape

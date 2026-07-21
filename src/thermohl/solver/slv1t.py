@@ -10,8 +10,9 @@ from typing import Optional
 
 import numpy as np
 
+from thermohl.solver import solver
 from thermohl import floatArrayLike, floatArray
-from thermohl.solver.solver import Solver as Solver_, get_time_changing_parameters
+from thermohl.solver.solver import Solver as Solver_, _transient_process_dynamic
 from thermohl.solver.parameters import DEFAULT_PARAMETERS as default
 from thermohl.solver.entities import PowerType, VariableType
 from thermohl.utils import bisect_v
@@ -61,20 +62,21 @@ class Solver1T(Solver_):
         self.add_error_and_power_if_needed(
             conductor_temperature, err, result, return_err, return_power
         )
-        result = self._add_input_data_to_result(result)
+        # result = self._add_input_data_to_result(result)
         return result
 
     def transient_temperature(
         self,
-        offset: floatArray = np.array([]),
+        time: floatArray = np.array([]),
         T0: Optional[float] = None,
+        dynamic: dict = None,
         return_power: bool = False,
     ) -> dict[str, np.ndarray]:
         """
         Compute transient-state temperature.
 
         Args:
-            offset (numpy.ndarray): A 1D array with times (in seconds) when the temperature needs to be computed. The array must contain increasing values (undefined behavior otherwise).
+            time (numpy.ndarray): A 1D array with times (in seconds) when the temperature needs to be computed. The array must contain increasing values (undefined behavior otherwise).
             T0 (float | None): Initial temperature. If None, the ambient temperature from the internal dict will be used. The default is None.
             return_power (bool, optional): Return power term values. The default is False.
 
@@ -82,42 +84,44 @@ class Solver1T(Solver_):
             dict[str, np.ndarray]: A dictionary with temperature and other results (depending on inputs) in the keys, along with input data.
         """
 
-        # get sizes
-        n = self.args.get_number_of_computations()
-        N = len(offset)
-        if N < 2:
-            raise ValueError("The length of the time array must be at least 2.")
+        # get sizes (n for input dict entries, N for time)
+        n = self._min_shape()[0]
+        N = len(time)
 
-        # get initial temperature
+        # process dynamic values
+        dynamic_ = _transient_process_dynamic(self.args, time, n, dynamic)
+
+        # inverse of m*C : shortcuts for time-loop
+        imc = 1.0 / (self.args.linear_mass * self.args.heat_capacity)
+
+        # save args
+        args = self.args.__dict__.copy()
+
+        # initial conditions
         if T0 is None:
             T0 = (
                 self.args.ambient_temperature
                 if isinstance(self.args.ambient_temperature, numbers.Number)
                 else self.args.ambient_temperature[0]
             )
-        time_changing_parameters = get_time_changing_parameters(self.args, offset, N, n)
-        # inverse of m*C : shortcuts for time-loop
-        imc = 1.0 / (self.args.linear_mass * self.args.heat_capacity)
-
-        # init
         conductor_temperature = np.zeros((N, n))
         conductor_temperature[0, :] = T0
 
         # main time loop
         for i in range(1, N):
-            for k, v in time_changing_parameters.items():
+            for k, v in dynamic_.items():
                 self.args[k] = v[i, :]
             self.update()
             conductor_temperature[i, :] = (
                 conductor_temperature[i - 1, :]
-                + (offset[i] - offset[i - 1])
+                + (time[i] - time[i - 1])
                 * self.balance(conductor_temperature[i - 1, :])
                 * imc
             )
 
         # save results
         result = {
-            VariableType.TIME.value: offset,
+            VariableType.TIME.value: time,
             VariableType.TEMPERATURE.value: conductor_temperature,
         }
 
@@ -125,25 +129,22 @@ class Solver1T(Solver_):
         if return_power:
             for power in Solver_.powers():
                 result[power.value] = np.zeros_like(conductor_temperature)
+
+            power_map = {
+                PowerType.JOULE:self.joule_heating.value,
+                PowerType.SOLAR:self.solar_heating.value,
+                PowerType.CONVECTION:self.convective_cooling.value,
+                PowerType.RADIATION:self.radiative_cooling.value,
+                PowerType.RAIN:self.precipitation_cooling.value,
+            }
+
             for i in range(N):
-                for key in time_changing_parameters.keys():
-                    self.args[key] = time_changing_parameters[key][i, :]
+                for k, v in dynamic_.items():
+                    self.args[k] = v[i, :]
                 self.update()
-                result[PowerType.JOULE.value][i, :] = self.joule_heating.value(
-                    conductor_temperature[i, :]
-                )
-                result[PowerType.SOLAR.value][i, :] = self.solar_heating.value(
-                    conductor_temperature[i, :]
-                )
-                result[PowerType.CONVECTION.value][i, :] = (
-                    self.convective_cooling.value(conductor_temperature[i, :])
-                )
-                result[PowerType.RADIATION.value][i, :] = self.radiative_cooling.value(
-                    conductor_temperature[i, :]
-                )
-                result[PowerType.RAIN.value][i, :] = self.precipitation_cooling.value(
-                    conductor_temperature[i, :]
-                )
+
+                for k, v in power_map.items():
+                    result[k.value][i, :] = v(conductor_temperature[i, :])
 
         # squeeze return values if n is 1
         if n == 1:
@@ -152,7 +153,10 @@ class Solver1T(Solver_):
             for key in keys:
                 result[key] = result[key][:, 0]
 
-        result = self._add_input_data_to_result(result)
+        # result = self._add_input_data_to_result(result)
+
+        # restore args
+        self.args = solver.Parameters(args)
 
         return result
 
@@ -220,6 +224,6 @@ class Solver1T(Solver_):
             return_power,
         )
 
-        result = self._add_input_data_to_result(result)
+        # result = self._add_input_data_to_result(result)
 
         return result

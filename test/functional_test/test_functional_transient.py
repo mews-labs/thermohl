@@ -54,7 +54,7 @@ def test_transient_temperature():
 
         # transient temperature
         transient_result = solver.transient_temperature_legacy(
-            offset=offsets,
+            time=offsets,
             surface_temperature_0=initial_state[TemperatureType.SURFACE.value],
             core_temperature_0=initial_state[TemperatureType.CORE.value],
             time_constant=time_constant,

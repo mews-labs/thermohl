@@ -23,9 +23,10 @@ from thermohl.solver.entities import (
 )
 from thermohl.solver.parameters import DEFAULT_PARAMETERS as default
 from thermohl.solver.slv1t import Solver1T
+from thermohl.solver import solver
 from thermohl.solver.solver import (
     Solver as Solver_,
-    get_time_changing_parameters,
+    _transient_process_dynamic,
 )
 from thermohl.utils import quasi_newton_2d
 
@@ -395,7 +396,7 @@ class Solver3T(Solver_):
             average_temperature, result, return_power, surface_temperature
         )
 
-        result = self._add_input_data_to_result(result)
+        # result = self._add_input_data_to_result(result)
 
         return result
 
@@ -412,15 +413,16 @@ class Solver3T(Solver_):
 
     def _transient_temperature_results(
         self,
-        offset,
+        time,
         surface_temperature,
         average_temperature,
         core_temperature,
         return_power,
         n,
+        dynamic_=None,
     ):
         dr = {
-            VariableType.TIME.value: offset,
+            VariableType.TIME.value: time,
             TemperatureType.SURFACE.value: surface_temperature,
             TemperatureType.AVERAGE.value: average_temperature,
             TemperatureType.CORE.value: core_temperature,
@@ -430,22 +432,24 @@ class Solver3T(Solver_):
             for power in Solver_.powers():
                 dr[power.value] = np.zeros_like(surface_temperature)
 
-            for i in range(len(offset)):
+            power_map = {
+                PowerType.SOLAR:self.solar_heating.value,
+                PowerType.CONVECTION:self.convective_cooling.value,
+                PowerType.RADIATION:self.radiative_cooling.value,
+                PowerType.RAIN:self.precipitation_cooling.value,
+            }
+
+            for i in range(len(time)):
+                if dynamic_ is not None:
+                    for k, v in dynamic_.items():
+                        self.args[k] = v[i, :]
+                    self.update()
+
                 dr[PowerType.JOULE.value][i, :] = self.joule(
                     surface_temperature[i, :], core_temperature[i, :]
                 )
-                dr[PowerType.SOLAR.value][i, :] = self.solar_heating.value(
-                    surface_temperature[i, :]
-                )
-                dr[PowerType.CONVECTION.value][i, :] = self.convective_cooling.value(
-                    surface_temperature[i, :]
-                )
-                dr[PowerType.RADIATION.value][i, :] = self.radiative_cooling.value(
-                    surface_temperature[i, :]
-                )
-                dr[PowerType.RAIN.value][i, :] = self.precipitation_cooling.value(
-                    surface_temperature[i, :]
-                )
+                for k, v in power_map.items():
+                    dr[k.value][i, :] = v(surface_temperature[i, :])
 
         if n == 1:
             keys = list(dr.keys())
@@ -457,16 +461,17 @@ class Solver3T(Solver_):
 
     def transient_temperature(
         self,
-        offset: floatArray = np.array([]),
+        time: floatArray = np.array([]),
         surface_temperature_0: Optional[floatArrayLike] = None,
         core_temperature_0: Optional[floatArrayLike] = None,
+        dynamic: dict = None,
         return_power: bool = False,
     ) -> Dict[str, Any]:
         """
         Compute transient-state temperature.
 
         Args:
-            offset (numpy.ndarray): A 1D array with times (in seconds) when the temperature needs to be computed. The array must contain increasing values (undefined behaviour otherwise).
+            time (numpy.ndarray): A 1D array with times (in seconds) when the temperature needs to be computed. The array must contain increasing values (undefined behaviour otherwise).
             surface_temperature_0 (float | numpy.ndarray | None): Initial surface temperature. If None, the ambient temperature from the internal dict will be used. The default is None.
             core_temperature_0 (float | numpy.ndarray | None): Initial core temperature. If None, the ambient temperature from the internal dict will be used. The default is None.
             return_power (bool, optional): Return power term values. The default is False.
@@ -477,12 +482,20 @@ class Solver3T(Solver_):
 
         """
         # get sizes (n for input dict entries, N for time)
-        n = self.args.get_number_of_computations()
-        N = len(offset)
-        if N < 2:
-            raise ValueError()
+        n = self._min_shape()[0]
+        N = len(time)
 
-        # get initial temperature
+        # process dynamic values
+        dynamic_ = _transient_process_dynamic(self.args, time, n, dynamic)
+        c1, c2 = self._morgan_transient()
+
+        # inverse of m*C : shortcuts for time-loop
+        imc = 1.0 / (self.args.linear_mass * self.args.heat_capacity)
+
+        # save args
+        args = self.args.__dict__.copy()
+
+        # initial conditions
         surface_temperature_0 = (
             surface_temperature_0
             if surface_temperature_0 is not None
@@ -493,12 +506,6 @@ class Solver3T(Solver_):
             if core_temperature_0 is not None
             else 1.0 + surface_temperature_0
         )
-        time_changing_parameters = get_time_changing_parameters(self.args, offset, N, n)
-        c1, c2 = self._morgan_transient()
-        # inverse of m*C : shortcuts for time-loop
-        imc = 1.0 / (self.args.linear_mass * self.args.heat_capacity)
-
-        # init
         surface_temperature = np.zeros((N, n))
         average_temperature = np.zeros((N, n))
         core_temperature = np.zeros((N, n))
@@ -513,11 +520,11 @@ class Solver3T(Solver_):
         ty = c2 * surface_temperature[0, :] + (1 - c2) * core_temperature[0, :]
 
         # main time loop
-        for i in range(1, len(offset)):
-            for k in time_changing_parameters.keys():
-                self.args[k] = time_changing_parameters[k][i - 1, :]
+        for i in range(1, N):
+            for k, v in dynamic_.items():
+                self.args[k] = v[i - 1, :]
             self.update()
-            dt = offset[i] - offset[i - 1]
+            dt = time[i] - time[i - 1]
             bal = self.balance_3t(
                 surface_temperature[i - 1, :], core_temperature[i - 1, :]
             )
@@ -530,14 +537,19 @@ class Solver3T(Solver_):
             surface_temperature[i, :] = ty - (1 - c2) * tx
 
         result = self._transient_temperature_results(
-            offset,
+            time,
             surface_temperature,
             average_temperature,
             core_temperature,
             return_power,
             n,
+            dynamic_,
         )
-        result = self._add_input_data_to_result(result)
+        # result = self._add_input_data_to_result(result)
+
+        # restore args
+        self.args = solver.Parameters(args)
+
         return result
 
     @staticmethod
@@ -702,6 +714,6 @@ class Solver3T(Solver_):
                     surface_temperature
                 )
 
-        result = self._add_input_data_to_result(result)
+        # result = self._add_input_data_to_result(result)
 
         return result

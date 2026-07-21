@@ -5,7 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # SPDX-License-Identifier: MPL-2.0
 
-from typing import Optional, Any, KeysView, Iterable
+from typing import Optional, Any, KeysView, Iterable, Tuple, List, Union
 import numpy as np
 
 
@@ -107,10 +107,14 @@ class Parameters:
         If the element is a list, it already has the right length.
         If the element is a scalar, it is replaced with a list of the right length filled with the scalar value.
         """
-        number_of_computations = self.get_number_of_computations()
-        for key in self.keys():
-            if not isinstance(self[key], Iterable):
-                self[key] = np.array(number_of_computations * [self[key]])
+        shape = self.shape()
+        if len(shape) == 0:
+            shape = (1,)
+        # broadcast every value to the common shape (dtype-agnostic, so
+        # non-numeric dtypes such as datetime64 are handled correctly)
+        for k in self.keys():
+            a = np.array(self[k])
+            self[k] = np.broadcast_to(a, shape).copy()
 
     def compress(self) -> None:
         """
@@ -121,3 +125,41 @@ class Parameters:
             u = np.unique(self[key])
             if len(u) == 1:
                 self[key] = u[0]
+
+    def shape(self) -> Tuple[int, ...]:
+        """
+        Compute the maximum effective shape of values in current instance.
+
+        Members of Args can be float of arrays. If arrays, they must be
+        one-dimensional. Float and 1d array can coexist, but all arrays should
+        have the same shape/size.
+
+        This method iterates over all keys in the instance's __dict__ and
+        computes the maximum length of the values associated with those keys.
+
+        If incompatible shapes are encountered, an exception is raised (ValueError).
+
+        """
+        shape_ = ()
+        for k in self.keys():
+            s = np.array(self[k]).shape
+            d = len(s)
+            er = f"Key {k} has a {s} shape when main shape is {shape_}"
+            if d == 0 or s == (1,):
+                # scalars and length-1 arrays broadcast against any shape
+                continue
+            if d == 1:
+                if shape_ == ():
+                    shape_ = s
+                elif len(shape_) == 1:
+                    if shape_ != s:
+                        raise ValueError(er)
+                else:
+                    raise ValueError(er)
+            else:
+                raise ValueError(
+                    f"Key {k} has a {s} shape, only float and 1-dim arrays are accepted"
+                )
+        return shape_
+
+

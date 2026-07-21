@@ -8,7 +8,7 @@
 """Base class to build a solver for heat equation."""
 
 from abc import ABC, abstractmethod
-from typing import Type, Any, Optional
+from typing import Type, Any, Optional, Tuple
 from contextlib import contextmanager
 
 import numpy.typing as npt
@@ -68,6 +68,12 @@ class Solver(ABC):
         self.radiative_cooling = radiative(**self.args.__dict__)
         self.precipitation_cooling = precipitation(**self.args.__dict__)
         self.args.compress()
+
+    def _min_shape(self) -> Tuple[int, ...]:
+        shape = self.args.shape()
+        if shape == ():
+            shape = (1,)
+        return shape
 
     def update(self) -> None:
         self.args.extend()
@@ -249,20 +255,24 @@ def _set_dates(
     return datetime_with_offset
 
 
-def get_time_changing_parameters(args, offset, N, n):
-    # get datetime for each offset
-    datetime_utc = _set_dates(args.datetime_utc, offset, n)
+def _transient_process_dynamic(
+        args, time: np.ndarray, n: int, dynamic: dict = None
+):
+    """Code factorization for transient temperature computations.
 
-    # A dict with time-changing quantities (with all elements of size N * n)
-    de = {
-        "datetime_utc": datetime_utc,
-        "transit": reshape(args.transit, N, n),
-        "ambient_temperature": reshape(args.ambient_temperature, N, n),
-        "wind_azimuth": reshape(args.wind_azimuth, N, n),
-        "wind_speed": reshape(args.wind_speed, N, n),
-        "ambient_pressure": reshape(args.ambient_pressure, N, n),
-        "relative_humidity": reshape(args.relative_humidity, N, n),
-        "precipitation_rate": reshape(args.precipitation_rate, N, n),
-    }
-    del datetime_utc
-    return de
+    This methods prepare a dict with dynamic values to use in the
+    compute time loop.
+    """
+    if len(time) < 2:
+        raise ValueError("The length of the time array must be at least 2.")
+
+    # get datetime for each offset
+    dynamic_ = {"datetime_utc": _set_dates(args.datetime_utc, time, n)}
+
+    if dynamic is None:
+        dynamic = {}
+
+    for k, v in dynamic.items():
+        dynamic_[k] = reshape(v, len(time), n)
+
+    return dynamic_

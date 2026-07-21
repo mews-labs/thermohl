@@ -47,10 +47,10 @@ def _ampargs(s: solver.Solver, t: dict[str, np.array]):
 
 def _traargs(s: solver.Solver, ds: dict[str, np.array], t):
     if isinstance(s, solver.Solver1T):
-        a = {"offset": t, "T0": ds[VariableType.TEMPERATURE.value]}
+        a = {"time": t, "T0": ds[VariableType.TEMPERATURE.value]}
     elif isinstance(s, solver.Solver3T):
         a = {
-            "offset": t,
+            "time": t,
             "surface_temperature_0": ds[TemperatureType.SURFACE.value],
             "core_temperature_0": ds[TemperatureType.CORE.value],
         }
