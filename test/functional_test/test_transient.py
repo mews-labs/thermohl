@@ -139,67 +139,153 @@ def _get_scenario_enhanced(name: str, key):
 def _gen_scenario_transient():
     """Generate a list of scenario, compute results and write yaml file for non-reg."""
 
-    scenario = {
-        "001": {
-            "heat_equation": "1t",
+    scenario =  {
+        "01a": {
+            "heateq": "1t",
+            "model": "cigre",
+            "conductor": "ASTER600",
+            "key": "A",
+        },
+        "01b": {
+            "heateq": "1t",
+            "model": "cigre",
+            "conductor": "CROCUS400",
+            "key": "A",
+        },
+        "01c": {
+            "heateq": "1t",
+            "model": "ieee",
+            "conductor": "ASTER600",
+            "key": "A",
+        },
+        "01d": {
+            "heateq": "1t",
+            "model": "ieee",
+            "conductor": "CROCUS400",
+            "key": "A",
+        },
+        "01e": {
+            "heateq": "1t",
             "model": "rte",
             "conductor": "ASTER600",
             "key": "A",
         },
-        "002": {
-            "heat_equation": "3t",
+        "01f": {
+            "heateq": "1t",
             "model": "rte",
             "conductor": "CROCUS400",
-            "key": "D",
+            "key": "A",
         },
+        "01g": {
+            "heateq": "1t",
+            "model": "olla",
+            "conductor": "ASTER600",
+            "key": "A",
+        },
+        "01h": {
+            "heateq": "1t",
+            "model": "olla",
+            "conductor": "CROCUS400",
+            "key": "A",
+        },
+
+        "02a": {
+            "heateq": "1t",
+            "model": "cigre",
+            "conductor": "ASTER600",
+            "key": "A",
+        },
+        "02b": {
+            "heateq": "1t",
+            "model": "cigre",
+            "conductor": "CROCUS400",
+            "key": "A",
+        },
+        "02c": {
+            "heateq": "1t",
+            "model": "ieee",
+            "conductor": "ASTER600",
+            "key": "A",
+        },
+        "02d": {
+            "heateq": "1t",
+            "model": "ieee",
+            "conductor": "CROCUS400",
+            "key": "A",
+        },
+        "02e": {
+            "heateq": "1t",
+            "model": "rte",
+            "conductor": "ASTER600",
+            "key": "A",
+        },
+        "02f": {
+            "heateq": "1t",
+            "model": "rte",
+            "conductor": "CROCUS400",
+            "key": "A",
+        },
+        "02g": {
+            "heateq": "1t",
+            "model": "olla",
+            "conductor": "ASTER600",
+            "key": "A",
+        },
+        "02h": {
+            "heateq": "1t",
+            "model": "olla",
+            "conductor": "CROCUS400",
+            "key": "A",
+        },
+
         "03a": {
-            "heat_equation": "1t",
+            "heateq": "1t",
             "model": "cigre",
             "conductor": ["ASTER600", "CROCUS400", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E", "F"],
         },
         "03b": {
-            "heat_equation": "1t",
+            "heateq": "1t",
             "model": "ieee",
             "conductor": ["ASTER600", "CROCUS400", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E", "F"],
         },
         "03c": {
-            "heat_equation": "1t",
+            "heateq": "1t",
             "model": "rte",
             "conductor": ["ASTER600", "CROCUS400", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E", "F"],
         },
         "03d": {
-            "heat_equation": "1t",
+            "heateq": "1t",
             "model": "olla",
             "conductor": ["ASTER600", "CROCUS400", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E", "F"],
         },
         "04a": {
-            "heat_equation": "3t",
-            "model": "olla",
+            "heateq": "3t",
+            "model": "cigre",
             "conductor": ["ASTER600", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E"],
         },
         "04b": {
-            "heat_equation": "3t",
-            "model": "olla",
+            "heateq": "3t",
+            "model": "ieee",
             "conductor": ["ASTER600", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E"],
         },
         "04c": {
-            "heat_equation": "3t",
-            "model": "olla",
+            "heateq": "3t",
+            "model": "rte",
             "conductor": ["ASTER600", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E"],
         },
         "04d": {
-            "heat_equation": "3t",
+            "heateq": "3t",
             "model": "olla",
             "conductor": ["ASTER600", "ASTER600", "CROCUS400"],
             "key": ["A", "B", "E"],
-        },
+        }
     }
 
     for i, s in scenario.items():
@@ -271,7 +357,7 @@ def _gen_scenario_transient():
 
     yaml.dump(
         scenario,
-        open(os.path.join("test", "functional_test", "scenario_transient.yaml"), "w"),
+        open(os.path.join("test", "functional_test", "scenario_transient_new.yaml"), "w"),
     )
 
 
